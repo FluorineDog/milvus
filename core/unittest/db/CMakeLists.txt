@@ -34,14 +34,15 @@ add_executable( test_db
 
 target_link_libraries( test_db  ${UNITTEST_LIBS}
                                 server
-                                # milvus_engine
-                                # metrics
-                                # config
-                                # stdc++
-                                # utils
-                                # tracing
-                                # query
-                                # log
+                                nvidia-ml
+                                milvus_engine
+                                metrics
+                                config
+                                stdc++
+                                utils
+                                tracing
+                                query
+                                log
                                 )
 
 install( TARGETS test_db DESTINATION unittest )
