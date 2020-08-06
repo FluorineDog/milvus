@@ -31,7 +31,6 @@ namespace engine {
 using DateT = int;
 
 using IDNumber = int64_t;
-using IDNumberPtr = IDNumber*;
 using IDNumbers = std::vector<IDNumber>;
 
 using VectorDistance = faiss::Index::distance_t;
