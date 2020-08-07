@@ -10,16 +10,12 @@ namespace engine {
 using Timestamp = uint64_t;  // TODO
 
 struct IndexConfig {
-    knowhere::Config config;
-
- public:
-    std::string
-    to_string();
-    bool
-    validate();
+    std::unordered_map<std::string, knowhere::Config> configs;
 };
 
-struct FieldsInfo {};  // TODO
+struct FieldsInfo {
+    std::unordered_map<std::string, > configs;
+};  // TODO
 
 class SegmentHolder : public cache::DataObj {
  public:
@@ -37,7 +33,7 @@ class SegmentHolder : public cache::DataObj {
 
     //
     Status
-    Insert(const DataChunkPtr& data_chunk, const std::vector<Id>& ids);
+    Insert(Timestamp timestamp, const DataChunkPtr& data_chunk, const std::vector<Id>& ids);
 
     Status
     DeleteEntityByIds(Timestamp timestamp, const std::vector<Id>& ids);
@@ -51,7 +47,7 @@ class SegmentHolder : public cache::DataObj {
 
     // stop receive insert requests
     Status
-    Freeze(Timestamp& timestamp);
+    Freeze();
 
     // to make all data inserted visible
     // maybe a no-op
@@ -72,6 +68,7 @@ class SegmentHolder : public cache::DataObj {
     Status
     Deserilize(std::string_view root);
 
+
  public:
     // getter and setters
 
@@ -88,14 +85,17 @@ class SegmentHolder : public cache::DataObj {
     SegmentState
     get_state() const;
 
+    uint32_t get_max_timestamp();
+
  private:
-    std::shared_mutex rw_mutex_;
+    std::shared_mutex meta_mutex_;
     std::atomic<SegmentState> state_ = SegmentState::Invalid;
     std::shared_ptr<FieldsInfo> fields_info_;
     std::shared_ptr<IndexConfig> index_param_;
 
     // we are holding data there
-    std::unordered_map<std::string, knowhere::VecIndexPtr> indexes_;
+    // TODO: should we split index into vector and scalar?
+    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
 
     // TODO: data holders
 };
