@@ -7,15 +7,17 @@
 namespace milvus {
 namespace engine {
 
-using Timestamp = uint64_t;  // TODO
+using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
 
 struct IndexConfig {
+    // TODO
     std::unordered_map<std::string, knowhere::Config> configs;
 };
 
 struct FieldsInfo {
-    std::unordered_map<std::string, > configs;
-};  // TODO
+    // TODO: add basic operations
+    std::unordered_map<std::string, Field> fields;
+};
 
 class SegmentHolder : public cache::DataObj {
  public:
@@ -42,8 +44,9 @@ class SegmentHolder : public cache::DataObj {
     Status
     Query(const query::QueryPtr& query, std::vector<Id>& results, Timestamp timestamp = 0);
 
-    Status
-    GetEntityByIds(Timestamp timestamp, const std::vector<Id>& ids, DataChunkPtr& results);
+    //    // THIS FUNCTION IS REMOVED
+    //    Status
+    //    GetEntityByIds(Timestamp timestamp, const std::vector<Id>& ids, DataChunkPtr& results);
 
     // stop receive insert requests
     Status
@@ -68,7 +71,6 @@ class SegmentHolder : public cache::DataObj {
     Status
     Deserilize(std::string_view root);
 
-
  public:
     // getter and setters
 
@@ -85,7 +87,8 @@ class SegmentHolder : public cache::DataObj {
     SegmentState
     get_state() const;
 
-    uint32_t get_max_timestamp();
+    uint32_t
+    get_max_timestamp();
 
  private:
     std::shared_mutex meta_mutex_;
