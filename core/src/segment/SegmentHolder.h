@@ -26,8 +26,8 @@ class SegmentHolder : public cache::DataObj {
     using Id = IDNumbers;
     enum class SegmentState {
         Invalid = 0,
-        Insert,  // able to insert data
-        Frozen   // able to build index
+        Inserting,  // able to insert data
+        Frozen      // able to build index
     };
 
  public:
@@ -62,14 +62,9 @@ class SegmentHolder : public cache::DataObj {
     Status
     BuildIndex(std::shared_ptr<IndexConfig> index_params, std::string_view field_name);
 
-    bool
+    // Remove Index
+    Status
     DropIndex();
-
-    Status
-    Serilize(std::string_view root);
-
-    Status
-    Deserilize(std::string_view root);
 
  public:
     // getter and setters
