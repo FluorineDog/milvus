@@ -33,10 +33,12 @@ class SegmentHolder : public cache::DataObj {
  public:
     SegmentHolder(std::shared_ptr<FieldsInfo> collection);
 
-    //
+    // TODO: originally, id should be put into data_chunk
+    // TODO: Is it ok to put them the other side?
     Status
-    Insert(Timestamp timestamp, const DataChunkPtr& data_chunk, const std::vector<Id>& ids);
+    Insert(Timestamp timestamp, DataChunkPtr data_chunk, const std::vector<Id>& ids);
 
+    // TODO: add id into delete log, possibly bitmap
     Status
     DeleteEntityByIds(Timestamp timestamp, const std::vector<Id>& ids);
 
@@ -69,7 +71,7 @@ class SegmentHolder : public cache::DataObj {
  public:
     // getter and setters
 
-    size_t
+    ssize_t
     get_row_count() const;
 
     const FieldsInfo&
@@ -82,11 +84,17 @@ class SegmentHolder : public cache::DataObj {
     SegmentState
     get_state() const;
 
-    uint32_t
+    Timestamp
     get_max_timestamp();
 
+    Timestamp
+    get_min_timestamp();
+
+    ssize_t
+    get_deleted_count() const;
+
  private:
-    std::shared_mutex meta_mutex_;
+    std::shared_mutex mutex_;
     std::atomic<SegmentState> state_ = SegmentState::Invalid;
     std::shared_ptr<FieldsInfo> fields_info_;
     std::shared_ptr<IndexConfig> index_param_;
