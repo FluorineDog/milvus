@@ -51,6 +51,7 @@ set( UNITTEST_LIBS  sqlite
                     gmock
                     gtest_main
                     gmock_main
+                    libstdc++fs.a
                     pthread
                     gfortran
                     opentracing
@@ -59,6 +60,13 @@ set( UNITTEST_LIBS  sqlite
                     dl
                     z
                     )
+
+if ( MILVUS_GPU_VERSION )
+    list( APPEND UNITTEST_LIBS   ${CUDA_TOOLKIT_ROOT_DIR}/lib64/stubs/libnvidia-ml.so
+            cudart
+            cublas
+            )
+endif()
 
 if ( MILVUS_WITH_AWS )
     set( S3_CLIENT_LIB  aws-cpp-sdk-s3

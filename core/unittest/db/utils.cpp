@@ -13,6 +13,7 @@
 
 #include <opentracing/mocktracer/tracer.h>
 
+#include <experimental/filesystem>
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <memory>
@@ -211,6 +212,8 @@ SnapshotTest::TearDown() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 milvus::engine::DBOptions
 DBTest::GetOptions() {
+    milvus::cache::CpuCacheMgr::GetInstance().SetCapacity(256 * milvus::engine::MB);
+
     auto options = milvus::engine::DBOptions();
     options.meta_.path_ = "/tmp/milvus_ss";
     options.meta_.backend_uri_ = "mock://:@:/";
@@ -263,7 +266,8 @@ DBTest::TearDown() {
 
     BaseTest::SnapshotStop();
     auto options = GetOptions();
-    boost::filesystem::remove_all(options.meta_.path_);
+    /* boost::filesystem::remove_all(options.meta_.path_); */
+    std::experimental::filesystem::remove_all(options.meta_.path_);
 
     BaseTest::TearDown();
 }

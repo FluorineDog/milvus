@@ -88,6 +88,14 @@ CompoundSegmentsOperation::CommitNewSegmentFile(const SegmentFileContext& contex
 }
 
 Status
+CompoundSegmentsOperation::AddStaleSegmentFile(const SegmentFilePtr& stale_segment_file) {
+    stale_segment_files_[stale_segment_file->GetSegmentId()].push_back(stale_segment_file);
+    modified_segments_.insert(stale_segment_file->GetSegmentId());
+
+    return Status::OK();
+}
+
+Status
 CompoundSegmentsOperation::DoExecute(StorePtr store) {
     if (!context_.new_segment && stale_segment_files_.size() == 0 && new_segment_files_.size() == 0) {
         return Status(SS_INVALID_CONTEX_ERROR, "Nothing to do");
@@ -728,6 +736,11 @@ GetSnapshotIDsOperation::GetSnapshotIDsOperation(ID_TYPE collection_id, bool rev
 
 Status
 GetSnapshotIDsOperation::DoExecute(StorePtr store) {
+    CollectionPtr collection;
+    STATUS_CHECK(store->GetResource<Collection>(collection_id_, collection));
+    if (!collection || !collection->IsActive()) {
+        return Status::OK();
+    }
     ids_ = store->AllActiveCollectionCommitIds(collection_id_, reversed_);
     return Status::OK();
 }
@@ -921,10 +934,9 @@ CreateCollectionOperation::DoExecute(StorePtr store) {
         AddStepWithLsn(*field, c_context_.lsn, f_ctx_p);
         MappingT element_ids = {};
         FieldElementPtr raw_element;
-        status =
-            store->CreateResource<FieldElement>(FieldElement(collection->GetID(), field->GetID(), DEFAULT_RAW_DATA_NAME,
-                                                             FieldElementType::FET_RAW, DEFAULT_RAW_DATA_NAME),
-                                                raw_element);
+        status = store->CreateResource<FieldElement>(FieldElement(collection->GetID(), field->GetID(), ELEMENT_RAW_DATA,
+                                                                  FieldElementType::FET_RAW, ELEMENT_RAW_DATA),
+                                                     raw_element);
         auto fe_ctx_p = ResourceContextBuilder<FieldElement>().SetOp(meta::oUpdate).CreatePtr();
         AddStepWithLsn(*raw_element, c_context_.lsn, fe_ctx_p);
         element_ids.insert(raw_element->GetID());

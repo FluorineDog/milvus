@@ -49,7 +49,7 @@ GetMicroSecTimeStamp() {
 
 bool
 IsSameIndex(const CollectionIndex& index1, const CollectionIndex& index2) {
-    return index1.index_name_ == index2.index_name_ && index1.extra_params_ == index2.extra_params_ &&
+    return index1.index_type_ == index2.index_type_ && index1.extra_params_ == index2.extra_params_ &&
            index1.metric_name_ == index2.metric_name_;
 }
 
@@ -60,7 +60,7 @@ IsBinaryMetricType(const std::string& metric_type) {
            (metric_type == knowhere::Metric::TANIMOTO);
 }
 
-engine::DateT
+engine::date_t
 GetDate(const std::time_t& t, int day_delta) {
     struct tm ltm;
     localtime_r(&t, &ltm);
@@ -80,12 +80,12 @@ GetDate(const std::time_t& t, int day_delta) {
     return ltm.tm_year * 10000 + ltm.tm_mon * 100 + ltm.tm_mday;
 }
 
-engine::DateT
+engine::date_t
 GetDateWithDelta(int day_delta) {
     return GetDate(std::time(nullptr), day_delta);
 }
 
-engine::DateT
+engine::date_t
 GetDate() {
     return GetDate(std::time(nullptr), 0);
 }
@@ -126,6 +126,24 @@ SendExitSignal() {
     LOG_SERVER_INFO_ << "Send SIGUSR2 signal to exit";
     pid_t pid = getpid();
     kill(pid, SIGUSR2);
+}
+
+void
+GetIDFromChunk(const engine::DataChunkPtr& chunk, engine::IDNumbers& ids) {
+    ids.clear();
+    if (chunk == nullptr) {
+        return;
+    }
+
+    auto pair = chunk->fixed_fields_.find(engine::FIELD_UID);
+    if (pair == chunk->fixed_fields_.end() || pair->second == nullptr) {
+        return;
+    }
+
+    if (!pair->second->data_.empty()) {
+        ids.resize(pair->second->data_.size() / sizeof(engine::id_t));
+        memcpy((void*)(ids.data()), pair->second->data_.data(), pair->second->data_.size());
+    }
 }
 
 }  // namespace utils

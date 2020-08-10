@@ -17,6 +17,7 @@
 #include "utils/TimeRecorder.h"
 
 #include <fiu-local.h>
+#include <set>
 
 namespace milvus {
 namespace server {
@@ -61,10 +62,13 @@ CreateCollectionReq::OnExecute() {
         // step 2: create snapshot collection context
         engine::snapshot::CreateCollectionContext create_collection_context;
         auto collection_schema = std::make_shared<engine::snapshot::Collection>(collection_name_, extra_params_);
+
+        std::set<std::string> unique_field_names;
         create_collection_context.collection = collection_schema;
         for (auto& field_kv : fields_) {
             auto& field_name = field_kv.first;
             auto& field_schema = field_kv.second;
+            unique_field_names.insert(field_name);
 
             auto& field_type = field_schema.field_type_;
             auto& field_params = field_schema.field_params_;
@@ -77,6 +81,14 @@ CreateCollectionReq::OnExecute() {
                 index_name = index_params["name"];
             }
 
+            // validate id field
+            if (field_name == engine::FIELD_UID) {
+                if (field_type != engine::DataType::INT64) {
+                    return Status(DB_ERROR, "Field '_id' data type must be int64");
+                }
+            }
+
+            // validate vector field dimension
             if (field_type == engine::DataType::VECTOR_FLOAT || field_type == engine::DataType::VECTOR_BINARY) {
                 if (!field_params.contains(engine::PARAM_DIMENSION)) {
                     return Status(SERVER_INVALID_VECTOR_DIMENSION, "Dimension not defined in field_params");
@@ -91,9 +103,12 @@ CreateCollectionReq::OnExecute() {
             }
 
             auto field = std::make_shared<engine::snapshot::Field>(field_name, 0, field_type, field_params);
-            auto field_element = std::make_shared<engine::snapshot::FieldElement>(
-                0, 0, index_name, engine::FieldElementType::FET_INDEX, index_params);
-            create_collection_context.fields_schema[field] = {field_element};
+            create_collection_context.fields_schema[field] = {};
+        }
+
+        // not allow duplicate field name
+        if (unique_field_names.size() != fields_.size()) {
+            return Status(DB_ERROR, "Duplicate field name");
         }
 
         // step 3: create collection

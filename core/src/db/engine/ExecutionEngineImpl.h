@@ -49,7 +49,7 @@ class ExecutionEngineImpl : public ExecutionEngine {
     CreateVecIndex(const std::string& index_name);
 
     Status
-    CreateStructuredIndex(const engine::DataType field_type, std::vector<uint8_t>& raw_data,
+    CreateStructuredIndex(const engine::DataType field_type, engine::BinaryDataPtr& raw_data,
                           knowhere::IndexPtr& index_ptr);
 
     Status
@@ -90,6 +90,7 @@ class ExecutionEngineImpl : public ExecutionEngine {
  private:
     segment::SegmentReaderPtr segment_reader_;
     TargetFields target_fields_;
+    ExecutionEngineContext context_;
 
     int64_t entity_count_;
 

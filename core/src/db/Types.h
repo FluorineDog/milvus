@@ -22,16 +22,18 @@
 #include <utility>
 #include <vector>
 
+#include "cache/DataObj.h"
 #include "knowhere/index/vector_index/VecIndex.h"
 #include "utils/Json.h"
 
 namespace milvus {
 namespace engine {
 
-using DateT = int;
+using id_t = int64_t;
+using offset_t = int32_t;
+using date_t = int32_t;
 
-using IDNumber = int64_t;
-using IDNumbers = std::vector<IDNumber>;
+using IDNumbers = std::vector<id_t>;
 
 using VectorDistance = faiss::Index::distance_t;
 using VectorDistances = std::vector<VectorDistance>;
@@ -52,19 +54,39 @@ enum DataType {
 
     STRING = 20,
 
-    UID = 30,
-
     VECTOR_BINARY = 100,
     VECTOR_FLOAT = 101,
 };
 
-using FIELD_TYPE = engine::DataType;
-using FIELD_TYPE_MAP = std::unordered_map<std::string, FIELD_TYPE>;
+class BinaryData : public cache::DataObj {
+ public:
+    int64_t
+    Size() {
+        return data_.size();
+    }
+
+ public:
+    std::vector<uint8_t> data_;
+};
+using BinaryDataPtr = std::shared_ptr<BinaryData>;
+
+class VaribleData : public cache::DataObj {
+ public:
+    int64_t
+    Size() {
+        return data_.size() + offset_.size() * sizeof(int64_t);
+    }
+
+ public:
+    std::vector<uint8_t> data_;
+    std::vector<int64_t> offset_;
+};
+using VaribleDataPtr = std::shared_ptr<VaribleData>;
+
+using FIELD_TYPE_MAP = std::unordered_map<std::string, DataType>;
 using FIELD_WIDTH_MAP = std::unordered_map<std::string, int64_t>;
-using FIXED_FIELD_DATA = std::vector<uint8_t>;
-using FIXEDX_FIELD_MAP = std::unordered_map<std::string, FIXED_FIELD_DATA>;
-using VARIABLE_FIELD_DATA = std::vector<std::string>;
-using VARIABLE_FIELD_MAP = std::unordered_map<std::string, VARIABLE_FIELD_DATA>;
+using FIXEDX_FIELD_MAP = std::unordered_map<std::string, BinaryDataPtr>;
+using VARIABLE_FIELD_MAP = std::unordered_map<std::string, VaribleDataPtr>;
 using VECTOR_INDEX_MAP = std::unordered_map<std::string, knowhere::VecIndexPtr>;
 using STRUCTURED_INDEX_MAP = std::unordered_map<std::string, knowhere::IndexPtr>;
 
@@ -78,6 +100,7 @@ using DataChunkPtr = std::shared_ptr<DataChunk>;
 
 struct CollectionIndex {
     std::string index_name_;
+    std::string index_type_;
     std::string metric_name_;
     milvus::json extra_params_ = {{"nlist", 2048}};
 };
@@ -114,19 +137,21 @@ using QueryResultPtr = std::shared_ptr<QueryResult>;
 using File2ErrArray = std::map<std::string, std::vector<std::string>>;
 using Table2FileErr = std::map<std::string, File2ErrArray>;
 
-extern const char* DEFAULT_UID_NAME;
+extern const char* FIELD_UID;
 
-extern const char* DEFAULT_RAW_DATA_NAME;
-extern const char* DEFAULT_BLOOM_FILTER_NAME;
-extern const char* DEFAULT_DELETED_DOCS_NAME;
-extern const char* DEFAULT_INDEX_COMPRESS_NAME;
-extern const char* DEFAULT_STRUCTURED_INDEX_NAME;
+extern const char* ELEMENT_RAW_DATA;
+extern const char* ELEMENT_BLOOM_FILTER;
+extern const char* ELEMENT_DELETED_DOCS;
+extern const char* ELEMENT_INDEX_COMPRESS;
 
+extern const char* PARAM_UID_AUTOGEN;
 extern const char* PARAM_DIMENSION;
 extern const char* PARAM_INDEX_TYPE;
 extern const char* PARAM_INDEX_METRIC_TYPE;
 extern const char* PARAM_INDEX_EXTRA_PARAMS;
 extern const char* PARAM_SEGMENT_ROW_COUNT;
+
+extern const char* DEFAULT_STRUCTURED_INDEX;
 
 constexpr int64_t BUILD_INDEX_THRESHOLD = 4096;  // row count threshold when building index
 constexpr int64_t MAX_NAME_LENGTH = 255;

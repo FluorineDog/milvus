@@ -37,23 +37,23 @@ class SegmentReader {
     Load();
 
     Status
-    LoadField(const std::string& field_name, std::vector<uint8_t>& raw);
+    LoadField(const std::string& field_name, engine::BinaryDataPtr& raw);
 
     Status
     LoadFields();
 
     Status
-    LoadEntities(const std::string& field_name, const std::vector<int64_t>& offsets, std::vector<uint8_t>& raw);
+    LoadEntities(const std::string& field_name, const std::vector<int64_t>& offsets, engine::BinaryDataPtr& raw);
 
     Status
     LoadFieldsEntities(const std::vector<std::string>& fields_name, const std::vector<int64_t>& offsets,
                        engine::DataChunkPtr& data_chunk);
 
     Status
-    LoadUids(std::vector<int64_t>& uids);
+    LoadUids(std::vector<engine::id_t>& uids);
 
     Status
-    LoadVectorIndex(const std::string& field_name, knowhere::VecIndexPtr& index_ptr);
+    LoadVectorIndex(const std::string& field_name, knowhere::VecIndexPtr& index_ptr, bool flat = false);
 
     Status
     LoadStructuredIndex(const std::string& field_name, knowhere::IndexPtr& index_ptr);

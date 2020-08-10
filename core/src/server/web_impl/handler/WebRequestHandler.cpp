@@ -814,12 +814,12 @@ WebRequestHandler::GetEntityByIDs(const std::string& collection_name, const std:
     if (!status.ok()) {
         return status;
     }
-    std::vector<uint8_t> id_array = data_chunk->fixed_fields_[engine::DEFAULT_UID_NAME];
+    std::vector<uint8_t> id_array = data_chunk->fixed_fields_[engine::FIELD_UID]->data_;
 
     for (const auto& it : field_mappings) {
         std::string name = it.first->GetName();
         uint64_t type = it.first->GetFtype();
-        std::vector<uint8_t> data = data_chunk->fixed_fields_[name];
+        std::vector<uint8_t>& data = data_chunk->fixed_fields_[name]->data_;
         if (type == engine::DataType::VECTOR_BINARY) {
             engine::VectorsData vectors_data;
             memcpy(vectors_data.binary_data_.data(), data.data(), data.size());
@@ -1643,7 +1643,7 @@ WebRequestHandler::InsertEntity(const OString& collection_name, const milvus::se
     }
 
     // return generated ids
-    auto pair = chunk_data.find(engine::DEFAULT_UID_NAME);
+    auto pair = chunk_data.find(engine::FIELD_UID);
     if (pair != chunk_data.end()) {
         int64_t count = pair->second.size() / 8;
         int64_t* pdata = reinterpret_cast<int64_t*>(pair->second.data());

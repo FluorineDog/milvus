@@ -271,18 +271,18 @@ CopyDataChunkToEntity(const engine::DataChunkPtr& data_chunk,
         std::string name = it.first->GetName();
 
         // judge whether data exists
-        std::vector<uint8_t> data = data_chunk->fixed_fields_[name];
-        if (data.empty())
+        engine::BinaryDataPtr data = data_chunk->fixed_fields_[name];
+        if (data == nullptr || data->data_.empty())
             continue;
 
-        auto single_size = data.size() / id_size;
+        auto single_size = data->data_.size() / id_size;
 
-        if (type == engine::DataType::UID) {
+        if (name == engine::FIELD_UID) {
             int64_t int64_value;
             auto int64_size = single_size * sizeof(int8_t) / sizeof(int64_t);
             for (int i = 0; i < id_size; i++) {
                 auto offset = i * single_size;
-                memcpy(&int64_value, data.data() + offset, single_size);
+                memcpy(&int64_value, data->data_.data() + offset, single_size);
                 response->add_ids(int64_value);
             }
             continue;
@@ -302,7 +302,7 @@ CopyDataChunkToEntity(const engine::DataChunkPtr& data_chunk,
             for (int i = 0; i < id_size; i++) {
                 auto vector_row_record = vector_record->add_records();
                 auto offset = i * single_size;
-                memcpy(binary_vector.data(), data.data() + offset, single_size);
+                memcpy(binary_vector.data(), data->data_.data() + offset, single_size);
                 vector_row_record->mutable_binary_data()->resize(binary_vector.size());
                 memcpy(vector_row_record->mutable_binary_data()->data(), binary_vector.data(), binary_vector.size());
             }
@@ -315,7 +315,7 @@ CopyDataChunkToEntity(const engine::DataChunkPtr& data_chunk,
             for (int i = 0; i < id_size; i++) {
                 auto vector_row_record = vector_record->add_records();
                 auto offset = i * single_size;
-                memcpy(float_vector.data(), data.data() + offset, single_size);
+                memcpy(float_vector.data(), data->data_.data() + offset, single_size);
                 vector_row_record->mutable_float_data()->Resize(vector_size, 0.0);
                 memcpy(vector_row_record->mutable_float_data()->mutable_data(), float_vector.data(),
                        float_vector.size() * sizeof(float));
@@ -329,7 +329,7 @@ CopyDataChunkToEntity(const engine::DataChunkPtr& data_chunk,
                 auto int32_size = single_size * sizeof(int8_t) / sizeof(int32_t);
                 for (int i = 0; i < id_size; i++) {
                     auto offset = i * single_size;
-                    memcpy(&int32_value, data.data() + offset, single_size);
+                    memcpy(&int32_value, data->data_.data() + offset, single_size);
                     attr_record->add_int32_value(int32_value);
                 }
             } else if (type == engine::DataType::INT64) {
@@ -338,7 +338,7 @@ CopyDataChunkToEntity(const engine::DataChunkPtr& data_chunk,
                 auto int64_size = single_size * sizeof(int8_t) / sizeof(int64_t);
                 for (int i = 0; i < id_size; i++) {
                     auto offset = i * single_size;
-                    memcpy(&int64_value, data.data() + offset, single_size);
+                    memcpy(&int64_value, data->data_.data() + offset, single_size);
                     attr_record->add_int64_value(int64_value);
                 }
             } else if (type == engine::DataType::DOUBLE) {
@@ -347,7 +347,7 @@ CopyDataChunkToEntity(const engine::DataChunkPtr& data_chunk,
                 auto int32_size = single_size * sizeof(int8_t) / sizeof(double);
                 for (int i = 0; i < id_size; i++) {
                     auto offset = i * single_size;
-                    memcpy(&double_value, data.data() + offset, single_size);
+                    memcpy(&double_value, data->data_.data() + offset, single_size);
                     attr_record->add_double_value(double_value);
                 }
             } else if (type == engine::DataType::FLOAT) {
@@ -356,7 +356,7 @@ CopyDataChunkToEntity(const engine::DataChunkPtr& data_chunk,
                 auto float_size = single_size * sizeof(int8_t) / sizeof(float);
                 for (int i = 0; i < id_size; i++) {
                     auto offset = i * single_size;
-                    memcpy(&float_value, data.data() + offset, single_size);
+                    memcpy(&float_value, data->data_.data() + offset, single_size);
                     attr_record->add_float_value(float_value);
                 }
             }
@@ -813,7 +813,9 @@ GrpcRequestHandler::CreateIndex(::grpc::ServerContext* context, const ::milvus::
     for (int i = 0; i < request->extra_params_size(); i++) {
         const ::milvus::grpc::KeyValuePair& extra = request->extra_params(i);
         if (extra.key() == EXTRA_PARAM_KEY) {
-            json_params = json::parse(extra.value());
+            json_params[EXTRA_PARAM_KEY] = json::parse(extra.value());
+        } else {
+            json_params[extra.key()] = extra.value();
         }
     }
 
@@ -1267,13 +1269,12 @@ GrpcRequestHandler::Flush(::grpc::ServerContext* context, const ::milvus::grpc::
 }
 
 ::grpc::Status
-GrpcRequestHandler::Compact(::grpc::ServerContext* context, const ::milvus::grpc::CollectionName* request,
+GrpcRequestHandler::Compact(::grpc::ServerContext* context, ::milvus::grpc::CompactParam* request,
                             ::milvus::grpc::Status* response) {
     CHECK_NULLPTR_RETURN(request);
     LOG_SERVER_INFO_ << LogOut("Request [%s] %s begin.", GetContext(context)->ReqID().c_str(), __func__);
 
-    double compact_threshold = 0.1;  // compact trigger threshold: delete_counts/segment_counts
-    Status status = req_handler_.Compact(GetContext(context), request->collection_name(), compact_threshold);
+    Status status = req_handler_.Compact(GetContext(context), request->collection_name(), request->threshold());
 
     LOG_SERVER_INFO_ << LogOut("Request [%s] %s end.", GetContext(context)->ReqID().c_str(), __func__);
     SET_RESPONSE(response, status, context);
@@ -1362,7 +1363,7 @@ GrpcRequestHandler::Insert(::grpc::ServerContext* context, const ::milvus::grpc:
         int64_t size = request->entity_id_array_size() * sizeof(int64_t);
         std::vector<uint8_t> temp_data(size, 0);
         memcpy(temp_data.data(), request->entity_id_array().data(), size);
-        chunk_data.insert(std::make_pair(engine::DEFAULT_UID_NAME, temp_data));
+        chunk_data.insert(std::make_pair(engine::FIELD_UID, temp_data));
     }
 
     std::string collection_name = request->collection_name();
@@ -1374,7 +1375,7 @@ GrpcRequestHandler::Insert(::grpc::ServerContext* context, const ::milvus::grpc:
     }
 
     // return generated ids
-    auto pair = chunk_data.find(engine::DEFAULT_UID_NAME);
+    auto pair = chunk_data.find(engine::FIELD_UID);
     if (pair != chunk_data.end()) {
         response->mutable_entity_id_array()->Resize(static_cast<int>(pair->second.size() / sizeof(int64_t)), 0);
         memcpy(response->mutable_entity_id_array()->mutable_data(), pair->second.data(), pair->second.size());
@@ -1567,6 +1568,8 @@ GrpcRequestHandler::ProcessLeafQueryJson(const nlohmann::json& json, query::Bool
         auto leaf_query = std::make_shared<query::LeafQuery>();
         auto term_query = std::make_shared<query::TermQuery>();
         nlohmann::json json_obj = json["term"];
+        JSON_NULL_CHECK(json_obj);
+        JSON_OBJECT_CHECK(json_obj);
         term_query->json_obj = json_obj;
         nlohmann::json::iterator json_it = json_obj.begin();
         field_name = json_it.key();
@@ -1577,6 +1580,8 @@ GrpcRequestHandler::ProcessLeafQueryJson(const nlohmann::json& json, query::Bool
         auto leaf_query = std::make_shared<query::LeafQuery>();
         auto range_query = std::make_shared<query::RangeQuery>();
         nlohmann::json json_obj = json["range"];
+        JSON_NULL_CHECK(json_obj);
+        JSON_OBJECT_CHECK(json_obj);
         range_query->json_obj = json_obj;
         nlohmann::json::iterator json_it = json_obj.begin();
         field_name = json_it.key();
@@ -1586,9 +1591,12 @@ GrpcRequestHandler::ProcessLeafQueryJson(const nlohmann::json& json, query::Bool
     } else if (json.contains("vector")) {
         auto leaf_query = std::make_shared<query::LeafQuery>();
         auto vector_json = json["vector"];
+        JSON_NULL_CHECK(vector_json);
 
         leaf_query->vector_placeholder = vector_json.get<std::string>();
         query->AddLeafQuery(leaf_query);
+    } else {
+        return Status{SERVER_INVALID_ARGUMENT, "Leaf query get wrong key"};
     }
     return status;
 }
@@ -1597,6 +1605,9 @@ Status
 GrpcRequestHandler::ProcessBooleanQueryJson(const nlohmann::json& query_json, query::BooleanQueryPtr& boolean_query,
                                             query::QueryPtr& query_ptr) {
     auto status = Status::OK();
+    if (query_json.empty()) {
+        return Status{SERVER_INVALID_ARGUMENT, "BoolQuery is null"};
+    }
     for (auto& el : query_json.items()) {
         if (el.key() == "must") {
             boolean_query->SetOccur(query::Occur::MUST);
@@ -1662,7 +1673,7 @@ GrpcRequestHandler::ProcessBooleanQueryJson(const nlohmann::json& query_json, qu
                 }
             }
         } else {
-            std::string msg = "Must json string doesnot include right query";
+            std::string msg = "BoolQuery json string does not include bool query";
             return Status{SERVER_INVALID_DSL_PARAMETER, msg};
         }
     }
@@ -1677,6 +1688,9 @@ GrpcRequestHandler::DeserializeJsonToBoolQuery(
     try {
         nlohmann::json dsl_json = json::parse(dsl_string);
 
+        if (dsl_json.empty()) {
+            return Status{SERVER_INVALID_ARGUMENT, "Query dsl is null"};
+        }
         auto status = Status::OK();
         for (const auto& vector_param : vector_params) {
             const std::string& vector_string = vector_param.json();
@@ -1687,14 +1701,20 @@ GrpcRequestHandler::DeserializeJsonToBoolQuery(
             auto vector_query = std::make_shared<query::VectorQuery>();
             json::iterator vector_param_it = it.value().begin();
             if (vector_param_it != it.value().end()) {
-                std::string field_name = vector_param_it.key();
+                const std::string& field_name = vector_param_it.key();
                 vector_query->field_name = field_name;
-                int64_t topk = vector_param_it.value()["topk"];
+                nlohmann::json vector_json = vector_param_it.value();
+                int64_t topk = vector_json["topk"];
                 status = server::ValidateSearchTopk(topk);
                 if (!status.ok()) {
                     return status;
                 }
                 vector_query->topk = topk;
+                if (vector_json.contains("metric_type")) {
+                    std::string metric_type = vector_json["metric_type"];
+                    vector_query->metric_type = metric_type;
+                    query_ptr->metric_types.insert({field_name, vector_json["metric_type"]});
+                }
                 if (!vector_param_it.value()["params"].empty()) {
                     vector_query->extra_params = vector_param_it.value()["params"];
                 }
@@ -1711,6 +1731,7 @@ GrpcRequestHandler::DeserializeJsonToBoolQuery(
         }
         if (dsl_json.contains("bool")) {
             auto boolean_query_json = dsl_json["bool"];
+            JSON_NULL_CHECK(boolean_query_json);
             status = ProcessBooleanQueryJson(boolean_query_json, boolean_query, query_ptr);
             if (!status.ok()) {
                 return status;

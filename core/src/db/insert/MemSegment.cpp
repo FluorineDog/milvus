@@ -33,7 +33,7 @@ namespace engine {
 MemSegment::MemSegment(int64_t collection_id, int64_t partition_id, const DBOptions& options)
     : collection_id_(collection_id), partition_id_(partition_id), options_(options) {
     current_mem_ = 0;
-    CreateSegment();
+    //    CreateSegment();
 }
 
 Status
@@ -65,7 +65,7 @@ MemSegment::CreateSegment() {
         sf_context.partition_id = partition_id_;
         sf_context.segment_id = segment_->GetID();
         sf_context.field_name = name;
-        sf_context.field_element_name = engine::DEFAULT_RAW_DATA_NAME;
+        sf_context.field_element_name = engine::ELEMENT_RAW_DATA;
 
         snapshot::SegmentFilePtr seg_file;
         status = operation_->CommitNewSegmentFile(sf_context, seg_file);
@@ -82,8 +82,8 @@ MemSegment::CreateSegment() {
         sf_context.collection_id = collection_id_;
         sf_context.partition_id = partition_id_;
         sf_context.segment_id = segment_->GetID();
-        sf_context.field_name = engine::DEFAULT_UID_NAME;
-        sf_context.field_element_name = engine::DEFAULT_DELETED_DOCS_NAME;
+        sf_context.field_name = engine::FIELD_UID;
+        sf_context.field_element_name = engine::ELEMENT_DELETED_DOCS;
 
         snapshot::SegmentFilePtr delete_doc_file, bloom_filter_file;
         status = operation_->CommitNewSegmentFile(sf_context, delete_doc_file);
@@ -93,7 +93,7 @@ MemSegment::CreateSegment() {
             return status;
         }
 
-        sf_context.field_element_name = engine::DEFAULT_BLOOM_FILTER_NAME;
+        sf_context.field_element_name = engine::ELEMENT_BLOOM_FILTER;
         status = operation_->CommitNewSegmentFile(sf_context, bloom_filter_file);
         if (!status.ok()) {
             std::string err_msg = "MemSegment::CreateSegment failed: " + status.ToString();
@@ -145,7 +145,6 @@ MemSegment::GetSingleEntitySize(int64_t& single_size) {
             case DataType::INT32:
                 single_size += sizeof(uint32_t);
                 break;
-            case DataType::UID:
             case DataType::INT64:
                 single_size += sizeof(uint64_t);
                 break;
@@ -197,55 +196,25 @@ MemSegment::Add(const VectorSourcePtr& source) {
 }
 
 Status
-MemSegment::Delete(segment::doc_id_t doc_id) {
+MemSegment::Delete(const std::vector<id_t>& ids) {
     engine::SegmentPtr segment_ptr;
     segment_writer_ptr_->GetSegment(segment_ptr);
 
     // Check wither the doc_id is present, if yes, delete it's corresponding buffer
-    engine::FIXED_FIELD_DATA raw_data;
-    auto status = segment_ptr->GetFixedFieldData(engine::DEFAULT_UID_NAME, raw_data);
-    if (!status.ok()) {
-        return Status::OK();
-    }
+    std::vector<id_t> uids;
+    segment_writer_ptr_->LoadUids(uids);
 
-    int64_t* uids = reinterpret_cast<int64_t*>(raw_data.data());
-    int64_t row_count = segment_ptr->GetRowCount();
-    for (int64_t i = 0; i < row_count; i++) {
-        if (doc_id == uids[i]) {
-            segment_ptr->DeleteEntity(i);
+    std::vector<offset_t> offsets;
+    for (auto id : ids) {
+        auto found = std::find(uids.begin(), uids.end(), id);
+        if (found == uids.end()) {
+            continue;
         }
+
+        auto offset = std::distance(uids.begin(), found);
+        offsets.push_back(offset);
     }
-
-    return Status::OK();
-}
-
-Status
-MemSegment::Delete(const std::vector<segment::doc_id_t>& doc_ids) {
-    engine::SegmentPtr segment_ptr;
-    segment_writer_ptr_->GetSegment(segment_ptr);
-
-    // Check wither the doc_id is present, if yes, delete it's corresponding buffer
-    std::vector<segment::doc_id_t> temp;
-    temp.resize(doc_ids.size());
-    memcpy(temp.data(), doc_ids.data(), doc_ids.size() * sizeof(segment::doc_id_t));
-
-    std::sort(temp.begin(), temp.end());
-
-    engine::FIXED_FIELD_DATA raw_data;
-    auto status = segment_ptr->GetFixedFieldData(engine::DEFAULT_UID_NAME, raw_data);
-    if (!status.ok()) {
-        return Status::OK();
-    }
-
-    int64_t* uids = reinterpret_cast<int64_t*>(raw_data.data());
-    int64_t row_count = segment_ptr->GetRowCount();
-    size_t deleted = 0;
-    for (int64_t i = 0; i < row_count; ++i) {
-        if (std::binary_search(temp.begin(), temp.end(), uids[i])) {
-            segment_ptr->DeleteEntity(i - deleted);
-            ++deleted;
-        }
-    }
+    segment_ptr->DeleteEntity(offsets);
 
     return Status::OK();
 }
@@ -275,6 +244,12 @@ Status
 MemSegment::Serialize(uint64_t wal_lsn) {
     int64_t size = GetCurrentMem();
     server::CollectSerializeMetrics metrics(size);
+
+    // delete action could delete all entities of the segment
+    // no need to serialize empty segment
+    if (segment_writer_ptr_->RowCount() == 0) {
+        return Status::OK();
+    }
 
     auto status = segment_writer_ptr_->Serialize();
     if (!status.ok()) {

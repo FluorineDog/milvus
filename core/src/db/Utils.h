@@ -20,11 +20,6 @@
 
 namespace milvus {
 namespace engine {
-namespace snapshot {
-class Segment;
-class Partition;
-class Collection;
-}  // namespace snapshot
 namespace utils {
 
 int64_t
@@ -36,11 +31,11 @@ IsSameIndex(const CollectionIndex& index1, const CollectionIndex& index2);
 bool
 IsBinaryMetricType(const std::string& metric_type);
 
-engine::DateT
+engine::date_t
 GetDate(const std::time_t& t, int day_delta = 0);
-engine::DateT
+engine::date_t
 GetDate();
-engine::DateT
+engine::date_t
 GetDateWithDelta(int day_delta);
 
 struct MetaUriInfo {
@@ -57,6 +52,9 @@ ParseMetaUri(const std::string& uri, MetaUriInfo& info);
 
 void
 SendExitSignal();
+
+void
+GetIDFromChunk(const engine::DataChunkPtr& chunk, engine::IDNumbers& ids);
 
 }  // namespace utils
 }  // namespace engine

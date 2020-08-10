@@ -11,7 +11,7 @@ done
 SCRIPTS_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 MILVUS_CORE_DIR="${SCRIPTS_DIR}/../../core"
-CORE_BUILD_DIR="${MILVUS_CORE_DIR}/cmake_build"
+CORE_BUILD_DIR=${CORE_BUILD_DIR:="${MILVUS_CORE_DIR}/cmake_build"}
 
 HELP="
 Usage:
@@ -115,8 +115,8 @@ if [[ ! -d ${CORE_BUILD_DIR} ]]; then
     mkdir ${CORE_BUILD_DIR}
 fi
 
-echo -e "===\n=== ccache statistics before build\n==="
-ccache --show-stats
+# Zero the cache statistics (but not the configuration options)
+ccache -z
 
 pushd ${CORE_BUILD_DIR}
 

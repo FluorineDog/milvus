@@ -69,8 +69,11 @@ MemManagerImpl::ValidateChunk(int64_t collection_id, const DataChunkPtr& chunk) 
             LOG_ENGINE_ERROR_ << err_msg;
             return Status(DB_ERROR, err_msg);
         }
+        if (iter->second == nullptr) {
+            continue;
+        }
 
-        size_t data_size = iter->second.size();
+        size_t data_size = iter->second->data_.size();
 
         snapshot::FieldPtr field = ss->GetField(name);
         DataType ftype = static_cast<DataType>(field->GetFtype());
@@ -106,7 +109,6 @@ MemManagerImpl::ValidateChunk(int64_t collection_id, const DataChunkPtr& chunk) 
                     return Status(DB_ERROR, err_msg + name);
                 }
                 break;
-            case DataType::UID:
             case DataType::INT64:
                 if (data_size != chunk->count_ * sizeof(uint64_t)) {
                     return Status(DB_ERROR, err_msg + name);
@@ -146,32 +148,13 @@ MemManagerImpl::InsertEntitiesNoLock(int64_t collection_id, int64_t partition_id
 }
 
 Status
-MemManagerImpl::DeleteEntity(int64_t collection_id, IDNumber engity_id, uint64_t lsn) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    MemCollectionPtr mem = GetMemByCollection(collection_id);
-
-    mem->SetLSN(lsn);
-    IDNumbers ids = {engity_id};
-    auto status = mem->Delete(ids);
-    if (status.ok()) {
-        return status;
-    }
-
-    return Status::OK();
-}
-
-Status
-MemManagerImpl::DeleteEntities(int64_t collection_id, int64_t length, const IDNumber* engity_ids, uint64_t lsn) {
+MemManagerImpl::DeleteEntities(int64_t collection_id, const std::vector<id_t>& entity_ids, uint64_t lsn) {
     std::unique_lock<std::mutex> lock(mutex_);
     MemCollectionPtr mem = GetMemByCollection(collection_id);
 
     mem->SetLSN(lsn);
 
-    IDNumbers ids;
-    ids.resize(length);
-    memcpy(ids.data(), engity_ids, length * sizeof(IDNumber));
-
-    auto status = mem->Delete(ids);
+    auto status = mem->Delete(entity_ids);
     if (!status.ok()) {
         return status;
     }
@@ -183,31 +166,19 @@ Status
 MemManagerImpl::Flush(int64_t collection_id) {
     ToImmutable(collection_id);
 
-    MemList temp_immutable_list;
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        immu_mem_list_.swap(temp_immutable_list);
-    }
-
-    std::unique_lock<std::mutex> lock(serialization_mtx_);
-    auto max_lsn = GetMaxLSN(temp_immutable_list);
-    for (auto& mem : temp_immutable_list) {
-        LOG_ENGINE_DEBUG_ << "Flushing collection: " << mem->GetCollectionId();
-        auto status = mem->Serialize(max_lsn);
-        if (!status.ok()) {
-            LOG_ENGINE_ERROR_ << "Flush collection " << mem->GetCollectionId() << " failed";
-            return status;
-        }
-        LOG_ENGINE_DEBUG_ << "Flushed collection: " << mem->GetCollectionId();
-    }
-
-    return Status::OK();
+    std::set<int64_t> collection_ids;
+    return InternalFlush(collection_ids);
 }
 
 Status
 MemManagerImpl::Flush(std::set<int64_t>& collection_ids) {
     ToImmutable();
 
+    return InternalFlush(collection_ids);
+}
+
+Status
+MemManagerImpl::InternalFlush(std::set<int64_t>& collection_ids) {
     MemList temp_immutable_list;
     {
         std::unique_lock<std::mutex> lock(mutex_);
@@ -215,7 +186,6 @@ MemManagerImpl::Flush(std::set<int64_t>& collection_ids) {
     }
 
     std::unique_lock<std::mutex> lock(serialization_mtx_);
-    collection_ids.clear();
     auto max_lsn = GetMaxLSN(temp_immutable_list);
     for (auto& mem : temp_immutable_list) {
         LOG_ENGINE_DEBUG_ << "Flushing collection: " << mem->GetCollectionId();
@@ -224,12 +194,8 @@ MemManagerImpl::Flush(std::set<int64_t>& collection_ids) {
             LOG_ENGINE_ERROR_ << "Flush collection " << mem->GetCollectionId() << " failed";
             return status;
         }
-        collection_ids.insert(mem->GetCollectionId());
         LOG_ENGINE_DEBUG_ << "Flushed collection: " << mem->GetCollectionId();
     }
-
-    // TODO: global lsn?
-    //    meta_->SetGlobalLastLSN(max_lsn);
 
     return Status::OK();
 }

@@ -33,13 +33,13 @@ class MemSegment {
 
  public:
     Status
+    CreateSegment();
+
+    Status
     Add(const VectorSourcePtr& source);
 
     Status
-    Delete(segment::doc_id_t doc_id);
-
-    Status
-    Delete(const std::vector<segment::doc_id_t>& doc_ids);
+    Delete(const std::vector<id_t>& ids);
 
     int64_t
     GetCurrentMem();
@@ -57,9 +57,6 @@ class MemSegment {
     GetSegmentId() const;
 
  private:
-    Status
-    CreateSegment();
-
     Status
     GetSingleEntitySize(int64_t& single_size);
 

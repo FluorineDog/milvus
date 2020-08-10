@@ -34,7 +34,7 @@ extern const char* COLLECTIONS_FOLDER;
 class Segment {
  public:
     Status
-    AddField(const std::string& field_name, FIELD_TYPE field_type, int64_t field_width = 0);
+    AddField(const std::string& field_name, DataType field_type, int64_t field_width = 0);
 
     Status
     AddChunk(const DataChunkPtr& chunk_ptr);
@@ -43,16 +43,19 @@ class Segment {
     AddChunk(const DataChunkPtr& chunk_ptr, int64_t from, int64_t to);
 
     Status
-    DeleteEntity(int64_t offset);
+    DeleteEntity(std::vector<offset_t>& offsets);
 
     Status
-    GetFieldType(const std::string& field_name, FIELD_TYPE& type);
+    GetFieldType(const std::string& field_name, DataType& type);
 
     Status
     GetFixedFieldWidth(const std::string& field_name, int64_t& width);
 
     Status
-    GetFixedFieldData(const std::string& field_name, FIXED_FIELD_DATA& data);
+    GetFixedFieldData(const std::string& field_name, BinaryDataPtr& data);
+
+    Status
+    SetFixedFieldData(const std::string& field_name, BinaryDataPtr& data);
 
     Status
     GetVectorIndex(const std::string& field_name, knowhere::VecIndexPtr& index);

@@ -61,6 +61,9 @@ class SegmentWriter {
     RowCount();
 
     Status
+    LoadUids(std::vector<engine::id_t>& uids);
+
+    Status
     SetVectorIndex(const std::string& field_name, const knowhere::VecIndexPtr& index);
 
     Status
@@ -96,7 +99,7 @@ class SegmentWriter {
     Initialize();
 
     Status
-    WriteField(const std::string& file_path, const engine::FIXED_FIELD_DATA& raw);
+    WriteField(const std::string& file_path, const engine::BinaryDataPtr& raw);
 
     Status
     WriteFields();

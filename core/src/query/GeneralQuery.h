@@ -79,6 +79,7 @@ struct VectorQuery {
     milvus::json extra_params = {};
     int64_t topk;
     int64_t nq;
+    std::string metric_type = "";
     float boost;
     VectorRecord query_vector;
 };
@@ -118,6 +119,7 @@ struct Query {
     std::vector<std::string> partitions;
     std::vector<std::string> field_names;
     std::set<std::string> index_fields;
+    std::unordered_map<std::string, std::string> metric_types;
 };
 using QueryPtr = std::shared_ptr<Query>;
 
