@@ -19,11 +19,18 @@ struct FieldsInfo {
     std::unordered_map<std::string, Field> fields;
 };
 
-class SegmentHolder : public cache::DataObj {
+class IndexData {
+ public:
+    virtual std::vector<char>
+    serilize() = 0;
+
+    static std::shared_ptr<IndexData>
+    deserialize(int64_t size, const char* blob);
+};
+
+class SegmentBase {
  public:
     // definitions
-
-    using Id = IDNumbers;
     enum class SegmentState {
         Invalid = 0,
         Inserting,  // able to insert data
@@ -31,79 +38,86 @@ class SegmentHolder : public cache::DataObj {
     };
 
  public:
-    SegmentHolder(std::shared_ptr<FieldsInfo> collection);
+    static std::shared_ptr<SegmentBase> Create(/*args*/);
+
+ public:
+    virtual ~SegmentBase() = default;
+    // SegmentBase(std::shared_ptr<FieldsInfo> collection);
 
     // TODO: originally, id should be put into data_chunk
     // TODO: Is it ok to put them the other side?
-    Status
-    Insert(Timestamp timestamp, DataChunkPtr data_chunk, const std::vector<Id>& ids);
+    virtual Status
+    Insert(Timestamp timestamp, DataChunkPtr data_chunk) = 0;
 
     // TODO: add id into delete log, possibly bitmap
-    Status
-    DeleteEntityByIds(Timestamp timestamp, const std::vector<Id>& ids);
+    virtual Status
+    DeleteEntityByIds(Timestamp timestamp, const std::vector<id_t>& ids) = 0;
 
     // query contains metadata of
-    Status
-    Query(const query::QueryPtr& query, std::vector<Id>& results, Timestamp timestamp = 0);
+    virtual Status
+    Query(const query::QueryPtr& query, std::vector<id_t>& results, Timestamp timestamp = 0) = 0;
 
-    //    // THIS FUNCTION IS REMOVED
-    //    Status
-    //    GetEntityByIds(Timestamp timestamp, const std::vector<Id>& ids, DataChunkPtr& results);
+    // // THIS FUNCTION IS REMOVED
+    // virtual Status
+    // GetEntityByIds(Timestamp timestamp, const std::vector<Id>& ids, DataChunkPtr& results) = 0;
 
     // stop receive insert requests
-    Status
-    Freeze();
+    virtual Status
+    Freeze() = 0;
 
-    // to make all data inserted visible
-    // maybe a no-op
-    Status
-    Flush(Timestamp timestamp);
+    //    // to make all data inserted visible
+    //    // maybe a no-op?
+    //    virtual Status
+    //    Flush(Timestamp timestamp) = 0;
 
     // BuildIndex With Paramaters, must with Frozen State
     // This function is atomic
-    Status
-    BuildIndex(std::shared_ptr<IndexConfig> index_params, std::string_view field_name);
+    // NOTE: index_params contains serveral policies for several index
+    virtual Status
+    BuildIndex(std::shared_ptr<IndexConfig> index_params, std::shared_ptr<IndexData> index_data = nullptr) = 0;
 
     // Remove Index
-    Status
-    DropIndex();
+    virtual Status
+    DropIndex(std::vector<std::string> fields) = 0;
 
  public:
-    // getter and setters
+    virtual ssize_t
+    get_row_count() const = 0;
 
-    ssize_t
-    get_row_count() const;
-
-    const FieldsInfo&
-    get_fields_info() const;
+    virtual const FieldsInfo&
+    get_fields_info() const = 0;
 
     // check is_indexed here
-    const IndexConfig&
-    get_index_param() const;
+    virtual const IndexConfig&
+    get_index_param() const = 0;
 
-    SegmentState
-    get_state() const;
+    virtual SegmentState
+    get_state() const = 0;
 
-    Timestamp
-    get_max_timestamp();
+    std::shared_ptr<IndexData>
+    get_index_data();
 
-    Timestamp
-    get_min_timestamp();
+    virtual Timestamp
+    get_max_timestamp() = 0;
 
-    ssize_t
-    get_deleted_count() const;
+    virtual Timestamp
+    get_min_timestamp() = 0;
 
+    virtual ssize_t
+    get_deleted_count() const = 0;
+
+ public:
  private:
-    std::shared_mutex mutex_;
-    std::atomic<SegmentState> state_ = SegmentState::Invalid;
-    std::shared_ptr<FieldsInfo> fields_info_;
-    std::shared_ptr<IndexConfig> index_param_;
+    //    std::shared_mutex mutex_;
+    //    std::atomic<SegmentState> state_ = SegmentState::Invalid;
+    //    std::shared_ptr<FieldsInfo> fields_info_;
+    //    std::shared_ptr<IndexConfig> index_param_;
 
-    // we are holding data there
-    // TODO: should we split index into vector and scalar?
-    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
+    //    // we are holding data there
+    //    // TODO: should we split index into vector and scalar?
+    //    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
 
-    // TODO: data holders
+    //     TODO: data holders
 };
 
 }  // namespace engine
