@@ -21,9 +21,9 @@
 #include "db/snapshot/Resources.h"
 #include "db/utils.h"
 #include "knowhere/index/vector_index/helpers/IndexParameter.h"
-#include "segment/SegmentHolder.h"
 #include "segment/SegmentReader.h"
 #include "segment/SegmentWriter.h"
+#include "src/dog_segment/SegmentHolder.h"
 #include "utils/Json.h"
 
 using SegmentVisitor = milvus::engine::SegmentVisitor;

@@ -1,33 +1,4 @@
-#pragma once
-#include <vector>
-
-#include "db/Types.h"
-#include "knowhere/index/Index.h"
-
-namespace milvus {
-namespace engine {
-
-using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
-
-struct IndexConfig {
-    // TODO
-    std::unordered_map<std::string, knowhere::Config> configs;
-};
-
-struct FieldsInfo {
-    // TODO: add basic operations
-    std::unordered_map<std::string, Field> fields;
-};
-
-class IndexData {
- public:
-    virtual std::vector<char>
-    serilize() = 0;
-
-    static std::shared_ptr<IndexData>
-    deserialize(int64_t size, const char* blob);
-};
-
+#include
 class SegmentBase {
  public:
     // definitions
@@ -36,10 +7,6 @@ class SegmentBase {
         Inserting,  // able to insert data
         Frozen      // able to build index
     };
-
- public:
-    static std::shared_ptr<SegmentBase> Create(/*args*/);
-
  public:
     virtual ~SegmentBase() = default;
     // SegmentBase(std::shared_ptr<FieldsInfo> collection);
@@ -51,7 +18,7 @@ class SegmentBase {
 
     // TODO: add id into delete log, possibly bitmap
     virtual Status
-    DeleteEntityByIds(Timestamp timestamp, const std::vector<id_t>& ids) = 0;
+    DeleteEntityByIds(std::vector<Timestamp> timestamp, const std::vector<id_t>& ids) = 0;
 
     // query contains metadata of
     virtual Status
@@ -119,6 +86,3 @@ class SegmentBase {
 
     //     TODO: data holders
 };
-
-}  // namespace engine
-}  // namespace milvus
