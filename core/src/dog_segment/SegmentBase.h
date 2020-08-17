@@ -1,8 +1,8 @@
 #pragma once
-#include "dog_segment/SegmentDefs.h"
 #include <vector>
 
 #include "db/Types.h"
+#include "dog_segment/SegmentDefs.h"
 #include "knowhere/index/Index.h"
 #include "query/GeneralQuery.h"
 
@@ -12,17 +12,18 @@ namespace engine {
 struct DogDataChunk {};
 using DogDataChunkPtr = std::shared_ptr<DataChunk>;
 
-int TestABI();
-
+int
+TestABI();
 
 class SegmentBase {
  public:
     // definitions
     enum class SegmentState {
         Invalid = 0,
-        Open,  // able to insert data
-        Closed      // able to build index
+        Open,   // able to insert data
+        Closed  // able to build index
     };
+
  public:
     virtual ~SegmentBase() = default;
     // SegmentBase(std::shared_ptr<FieldsInfo> collection);
@@ -36,7 +37,7 @@ class SegmentBase {
 
     // query contains metadata of
     virtual Status
-    Query(const query::QueryPtr& query, Timestamp timestamp, std::vector<QueryResult>& results) = 0;
+    Query(const query::QueryPtr& query, Timestamp timestamp, QueryResult& results) = 0;
 
     // // THIS FUNCTION IS REMOVED
     // virtual Status
@@ -50,7 +51,6 @@ class SegmentBase {
     //    // maybe a no-op?
     //    virtual Status
     //    Flush(Timestamp timestamp) = 0;
-
 
     // BuildIndex With Paramaters, must with Frozen State
     // This function is atomic
@@ -68,24 +68,22 @@ class SegmentBase {
     virtual Status
     LoadRawData(const std::string& field_name, const char* blob, int64_t blob_size) = 0;
 
-
- 
  public:
     virtual ssize_t
     get_row_count() const = 0;
 
-//    virtual const FieldsInfo&
-//    get_fields_info() const = 0;
-//
-//    // check is_indexed here
-//    virtual const IndexConfig&
-//    get_index_param() const = 0;
+    //    virtual const FieldsInfo&
+    //    get_fields_info() const = 0;
+    //
+    //    // check is_indexed here
+    //    virtual const IndexConfig&
+    //    get_index_param() const = 0;
 
     virtual SegmentState
     get_state() const = 0;
-//
-//    std::shared_ptr<IndexData>
-//    get_index_data();
+    //
+    //    std::shared_ptr<IndexData>
+    //    get_index_data();
 
     virtual Timestamp
     get_max_timestamp() = 0;

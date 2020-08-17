@@ -20,12 +20,12 @@
 #include "db/snapshot/IterateHandler.h"
 #include "db/snapshot/Resources.h"
 #include "db/utils.h"
+#include "dog_segment/SegmentBase.h"
 #include "knowhere/index/vector_index/helpers/IndexParameter.h"
 #include "segment/SegmentReader.h"
 #include "segment/SegmentWriter.h"
-#include "src/dog_segment/SegmentHolder.h"
+#include "src/dog_segment/SegmentBase.h"
 #include "utils/Json.h"
-#include "dog_segment/SegmentHolder.h"
 
 using SegmentVisitor = milvus::engine::SegmentVisitor;
 
