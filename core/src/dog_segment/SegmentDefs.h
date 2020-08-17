@@ -1,9 +1,10 @@
 #pragma once
+
+
 #include <vector>
 
 #include "db/Types.h"
 #include "knowhere/index/Index.h"
-
 
 using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
 namespace milvus::engine {
@@ -15,7 +16,7 @@ struct IndexConfig {
 
 struct FieldsInfo {
     // TODO: add basic operations
-    std::unordered_map<std::string, Field> fields;
+    std::unordered_map<std::string, FieldElementType> fields;
 };
 
 class IndexData {

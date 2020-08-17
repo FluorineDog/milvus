@@ -63,9 +63,11 @@ CreateCollection(std::shared_ptr<DBImpl> db, const std::string& collection_name,
 }
 }  // namespace
 
+
 TEST_F(DogSegmentTest, SegmentHelperTest) {
+    using namespace milvus::engine;
+    ASSERT_EQ(TestABI(), 42);
     assert(true);
-    CreateSegment()
 }
 
 TEST_F(DogSegmentTest, DogSegmentTest) {

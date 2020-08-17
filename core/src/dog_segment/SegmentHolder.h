@@ -9,7 +9,11 @@
 namespace milvus {
 namespace engine {
 
-struct QueryResult {};
+struct DogDataChunk {};
+using DogDataChunkPtr = std::shared_ptr<DataChunk>;
+
+int TestABI();
+
 
 class SegmentBase {
  public:
@@ -76,7 +80,7 @@ class SegmentBase {
 //    // check is_indexed here
 //    virtual const IndexConfig&
 //    get_index_param() const = 0;
-//
+
     virtual SegmentState
     get_state() const = 0;
 //
