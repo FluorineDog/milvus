@@ -4,7 +4,9 @@
 #include "db/Types.h"
 #include "knowhere/index/Index.h"
 
+
 using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
+namespace milvus::engine {
 
 struct IndexConfig {
     // TODO
@@ -24,3 +26,5 @@ class IndexData {
     static std::shared_ptr<IndexData>
     deserialize(int64_t size, const char* blob);
 };
+
+}
