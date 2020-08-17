@@ -9,30 +9,30 @@
 namespace milvus {
 namespace engine {
 
+struct QueryResult {};
+
 class SegmentBase {
  public:
     // definitions
     enum class SegmentState {
         Invalid = 0,
-        Inserting,  // able to insert data
-        Frozen      // able to build index
+        Open,  // able to insert data
+        Closed      // able to build index
     };
  public:
     virtual ~SegmentBase() = default;
     // SegmentBase(std::shared_ptr<FieldsInfo> collection);
 
-    // TODO: originally, id should be put into data_chunk
-    // TODO: Is it ok to put them the other side?
     virtual Status
-    Insert(Timestamp timestamp, DataChunkPtr data_chunk) = 0;
+    Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps, DogDataChunkPtr values) = 0;
 
     // TODO: add id into delete log, possibly bitmap
     virtual Status
-    DeleteEntityByIds(std::vector<Timestamp> timestamp, const std::vector<id_t>& ids) = 0;
+    Delete(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps) = 0;
 
     // query contains metadata of
     virtual Status
-    Query(const query::QueryPtr& query, std::vector<id_t>& results, Timestamp timestamp = 0) = 0;
+    Query(const query::QueryPtr& query, Timestamp timestamp, std::vector<QueryResult>& results) = 0;
 
     // // THIS FUNCTION IS REMOVED
     // virtual Status
@@ -40,23 +40,32 @@ class SegmentBase {
 
     // stop receive insert requests
     virtual Status
-    Freeze() = 0;
+    Close() = 0;
 
     //    // to make all data inserted visible
     //    // maybe a no-op?
     //    virtual Status
     //    Flush(Timestamp timestamp) = 0;
 
+
     // BuildIndex With Paramaters, must with Frozen State
     // This function is atomic
     // NOTE: index_params contains serveral policies for several index
     virtual Status
-    BuildIndex(std::shared_ptr<IndexConfig> index_params, std::shared_ptr<IndexData> index_data = nullptr) = 0;
+    BuildIndex(std::shared_ptr<IndexConfig> index_params) = 0;
 
     // Remove Index
     virtual Status
-    DropIndex(std::vector<std::string> fields) = 0;
+    DropIndex(const std::string& field_name) = 0;
 
+    virtual Status
+    DropRawData(const std::string& field_name) = 0;
+
+    virtual Status
+    LoadRawData(const std::string& field_name, const char* blob, int64_t blob_size) = 0;
+
+
+ 
  public:
     virtual ssize_t
     get_row_count() const = 0;
