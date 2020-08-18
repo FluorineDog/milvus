@@ -10,10 +10,7 @@ TestABI() {
     return 42;
 }
 
-std::shared_ptr<SegmentBase>
-CreateSegment() {
-    return nullptr;
-}
+
 
 class SegmentNaive : public SegmentBase {
  public:
@@ -25,19 +22,20 @@ class SegmentNaive : public SegmentBase {
     Status
     Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps,
            DogDataChunkPtr values) override {
-        return Status::OK();
-    }
+        throw std::runtime_error("not implemented");
+        return Status::OK(); }
 
     // TODO: add id into delete log, possibly bitmap
     Status
-
     Delete(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps) override {
+        throw std::runtime_error("not implemented");
         return Status::OK();
     }
 
     // query contains metadata of
     Status
     Query(const query::QueryPtr& query, Timestamp timestamp, QueryResult& results) override {
+        throw std::runtime_error("not implemented");
         return Status::OK();
     };
 
@@ -48,6 +46,9 @@ class SegmentNaive : public SegmentBase {
     // stop receive insert requests
     Status
     Close() override {
+        std::lock_guard<std::shared_mutex> lck(mutex_);
+        assert(state_ == SegmentState::Open);
+        state_ = SegmentState::Closed;
         return Status::OK();
     }
 
@@ -124,7 +125,7 @@ class SegmentNaive : public SegmentBase {
  public:
  private:
     std::shared_mutex mutex_;
-    //    std::atomic<SegmentState> state_ = SegmentState::Invalid;
+    std::atomic<SegmentState> state_ = SegmentState::Open;
     //    std::shared_ptr<FieldsInfo> fields_info_;
     //    std::shared_ptr<IndexConfig> index_param_;
 
@@ -133,6 +134,13 @@ class SegmentNaive : public SegmentBase {
     //    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
 
     //     TODO: data holders
-};
+}; std::shared_ptr<SegmentBase> CreateSegment() {
+    auto ptr = std::make_shared<SegmentNaive>();
+
+    return ptr;
+}
+
 
 }  // namespace milvus::engine
+
+
