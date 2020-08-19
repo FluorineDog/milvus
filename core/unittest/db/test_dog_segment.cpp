@@ -26,6 +26,10 @@
 #include "segment/SegmentWriter.h"
 #include "src/dog_segment/SegmentBase.h"
 #include "utils/Json.h"
+#include <iostream>
+using std::cin;
+using std::cout;
+using std::endl;
 
 using SegmentVisitor = milvus::engine::SegmentVisitor;
 
@@ -64,11 +68,50 @@ CreateCollection(std::shared_ptr<DBImpl> db, const std::string& collection_name,
 }  // namespace
 
 
-TEST_F(DogSegmentTest, SegmentHelperTest) {
+TEST_F(DogSegmentTest, TestABI) {
     using namespace milvus::engine;
     ASSERT_EQ(TestABI(), 42);
     assert(true);
 }
+
+TEST_F(DogSegmentTest, TestCreateAndSchema) {
+    using namespace milvus::engine;
+    // step1: create segment from current snapshot.
+
+    LSN_TYPE lsn = 0;
+    auto next_lsn = [&]() -> decltype(lsn) { return ++lsn; };
+
+    // step 1.1: create collection
+    std::string db_root = "/tmp/milvus_test/db/table";
+    std::string collection_name = "c1";
+    auto status = CreateCollection(db_, collection_name, next_lsn());
+    ASSERT_TRUE(status.ok());
+
+
+    // step 1.2: get snapshot
+    ScopedSnapshotT snapshot;
+    status = Snapshots::GetInstance().GetSnapshot(snapshot, collection_name);
+    ASSERT_TRUE(status.ok());
+    ASSERT_TRUE(snapshot);
+    ASSERT_EQ(snapshot->GetName(), collection_name);
+
+    // step 1.3: get partition_id
+    cout << endl;
+    cout << endl;
+    ID_TYPE partition_id = snapshot->GetResources<Partition>().begin()->first;
+    cout << partition_id;
+
+    // step 1.5 create schema from ids
+    auto collection = snapshot->GetCollection();
+
+    auto field_names = snapshot->GetFieldNames();
+    // step 1.4 create a segment from ids
+    for(const auto& field_name: field_names) {
+        auto field = snapshot->GetField(field_name);
+        auto type = field->GetFtype();
+    }
+}
+
 
 TEST_F(DogSegmentTest, DogSegmentTest) {
     LSN_TYPE lsn = 0;

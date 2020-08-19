@@ -1,7 +1,8 @@
+#include <shared_mutex>
+
 #include "dog_segment/SegmentBase.h"
 #include "query/GeneralQuery.h"
 #include "utils/Status.h"
-#include <shared_mutex>
 
 namespace milvus::engine {
 
@@ -9,8 +10,6 @@ int
 TestABI() {
     return 42;
 }
-
-
 
 class SegmentNaive : public SegmentBase {
  public:
@@ -23,7 +22,8 @@ class SegmentNaive : public SegmentBase {
     Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps,
            DogDataChunkPtr values) override {
         throw std::runtime_error("not implemented");
-        return Status::OK(); }
+        return Status::OK();
+    }
 
     // TODO: add id into delete log, possibly bitmap
     Status
@@ -77,7 +77,6 @@ class SegmentNaive : public SegmentBase {
         return Status::OK();
     }
 
-
     Status
     LoadRawData(const std::string& field_name, const char* blob, int64_t blob_size) override {
         // TODO: NO-OP
@@ -87,7 +86,7 @@ class SegmentNaive : public SegmentBase {
  public:
     ssize_t
     get_row_count() const override {
-        return 0;
+        return count_.load(std::memory_order_relaxed);
     }
 
     //    const FieldsInfo&
@@ -101,7 +100,7 @@ class SegmentNaive : public SegmentBase {
     //
     SegmentState
     get_state() const override {
-        return SegmentState::Invalid;
+        return state_.load(std::memory_order_relaxed);
     }
     //
     //    std::shared_ptr<IndexData>
@@ -126,6 +125,7 @@ class SegmentNaive : public SegmentBase {
  private:
     std::shared_mutex mutex_;
     std::atomic<SegmentState> state_ = SegmentState::Open;
+    std::atomic<int64_t> count_ = 0;
     //    std::shared_ptr<FieldsInfo> fields_info_;
     //    std::shared_ptr<IndexConfig> index_param_;
 
@@ -134,13 +134,13 @@ class SegmentNaive : public SegmentBase {
     //    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
 
     //     TODO: data holders
-}; std::shared_ptr<SegmentBase> CreateSegment() {
+};
+
+std::shared_ptr<SegmentBase>
+CreateSegment() {
     auto ptr = std::make_shared<SegmentNaive>();
 
     return ptr;
 }
 
-
 }  // namespace milvus::engine
-
-

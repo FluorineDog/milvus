@@ -15,6 +15,11 @@ struct IndexConfig {
     std::unordered_map<std::string, knowhere::Config> configs;
 };
 
+struct FieldInfo {
+    std::string field_name;
+    std::string field_id;
+};
+
 struct FieldsInfo {
     // TODO: add basic operations
     std::unordered_map<std::string, FieldElementType> fields;
