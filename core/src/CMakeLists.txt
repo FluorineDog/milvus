@@ -57,6 +57,7 @@ add_subdirectory( query )
 add_subdirectory( db ) # target milvus_engine
 add_subdirectory( log )
 add_subdirectory( server )
+add_subdirectory( dog_segment )
 
 set(link_lib
         milvus_engine

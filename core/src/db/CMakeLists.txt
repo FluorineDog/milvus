@@ -135,6 +135,7 @@ endif ()
 target_link_libraries( milvus_engine
                PUBLIC  knowhere
                        segment
+                       dog_segment
                        cache
                        codecs
                        storage
