@@ -93,19 +93,6 @@ class SegmentBase {
 
     virtual ssize_t
     get_deleted_count() const = 0;
-
- public:
- private:
-    //    std::shared_mutex mutex_;
-    //    std::atomic<SegmentState> state_ = SegmentState::Invalid;
-    //    std::shared_ptr<FieldsInfo> fields_info_;
-    //    std::shared_ptr<IndexConfig> index_param_;
-
-    //    // we are holding data there
-    //    // TODO: should we split index into vector and scalar?
-    //    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
-
-    //     TODO: data holders
 };
 
 std::shared_ptr<SegmentBase> CreateSegment(SchemaPtr ptr);
