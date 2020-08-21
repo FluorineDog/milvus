@@ -108,7 +108,7 @@ class SegmentBase {
     //     TODO: data holders
 };
 
-std::shared_ptr<SegmentBase> CreateSegment(/*args*/);
+std::shared_ptr<SegmentBase> CreateSegment(SchemaPtr ptr);
 
 }  // namespace engine
 }  // namespace milvus

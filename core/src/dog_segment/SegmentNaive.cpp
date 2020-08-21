@@ -3,6 +3,7 @@
 #include "dog_segment/SegmentBase.h"
 #include "query/GeneralQuery.h"
 #include "utils/Status.h"
+#include <tbb/concurrent_vector.h>
 
 namespace milvus::engine {
 
@@ -20,10 +21,7 @@ class SegmentNaive : public SegmentBase {
     // TODO: Is it ok to put them the other side?
     Status
     Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps,
-           DogDataChunkPtr values) override {
-        throw std::runtime_error("not implemented");
-        return Status::OK();
-    }
+           DogDataChunkPtr values) override;
 
     // TODO: add id into delete log, possibly bitmap
     Status
@@ -123,6 +121,9 @@ class SegmentNaive : public SegmentBase {
 
  public:
  private:
+
+    SchemaPtr schema_;
+
     std::shared_mutex mutex_;
     std::atomic<SegmentState> state_ = SegmentState::Open;
     std::atomic<int64_t> count_ = 0;
@@ -134,13 +135,52 @@ class SegmentNaive : public SegmentBase {
     //    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
 
     //     TODO: data holders
+    friend std::shared_ptr<SegmentBase>
+    CreateSegment(SchemaPtr schema);
+    std::vector<tbb::concurrent_vector<float>> raw_data_;
+
+    struct RuntimeCache {
+        bool is_active = false;
+        std::unordered_map<std::string, int> field_ids;
+        std::vector<int> field_sizeofs;
+        std::vector<int> dims;
+        void Build(SchemaPtr schema);
+    };
+
+    RuntimeCache runtime_cache_;
+
 };
 
-std::shared_ptr<SegmentBase>
-CreateSegment() {
-    auto ptr = std::make_shared<SegmentNaive>();
+void SegmentNaive::RuntimeCache::Build(SchemaPtr schema) {
+    if(is_active) {
+        return;
+    }
+    field_ids.clear();
+    auto& metas = schema->field_metas;
+    for(int i = 0; i < metas.size(); ++i) {
+        auto meta = metas[i];
+        auto field_name = meta.get_name();
+        field_ids[field_name] = i;
+        auto size = meta.get_sizeof();
+    }
 
-    return ptr;
+}
+
+std::shared_ptr<SegmentBase>
+CreateSegment(SchemaPtr schema) {
+    auto segment = std::make_shared<SegmentNaive>();
+    segment->schema_ = schema;
+    return segment;
+}
+
+
+// TODO: originally, id should be put into data_chunk
+// TODO: Is it ok to put them the other side?
+Status
+SegmentNaive::Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps,
+                     DogDataChunkPtr values) {
+    throw std::runtime_error("not implemented");
+    return Status::OK();
 }
 
 }  // namespace milvus::engine

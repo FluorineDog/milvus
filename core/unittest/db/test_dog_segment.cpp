@@ -13,6 +13,7 @@
 #include <fiu-local.h>
 #include <gtest/gtest.h>
 
+#include <iostream>
 #include <string>
 
 #include "db/SnapshotVisitor.h"
@@ -26,7 +27,6 @@
 #include "segment/SegmentWriter.h"
 #include "src/dog_segment/SegmentBase.h"
 #include "utils/Json.h"
-#include <iostream>
 using std::cin;
 using std::cout;
 using std::endl;
@@ -44,12 +44,14 @@ CreateCollection(std::shared_ptr<DB> db, const std::string& collection_name, con
     int64_t collection_id = 0;
     int64_t field_id = 0;
     /* field uid */
-    auto uid_field = std::make_shared<Field>(milvus::engine::FIELD_UID, 0,
-            milvus::engine::DataType::INT64, milvus::engine::snapshot::JEmpty, field_id);
-    auto uid_field_element_blt = std::make_shared<FieldElement>(collection_id, field_id,
-            milvus::engine::ELEMENT_BLOOM_FILTER, milvus::engine::FieldElementType::FET_BLOOM_FILTER);
-    auto uid_field_element_del = std::make_shared<FieldElement>(collection_id, field_id,
-            milvus::engine::ELEMENT_DELETED_DOCS, milvus::engine::FieldElementType::FET_DELETED_DOCS);
+    auto uid_field = std::make_shared<Field>(milvus::engine::FIELD_UID, 0, milvus::engine::DataType::INT64,
+                                             milvus::engine::snapshot::JEmpty, field_id);
+    auto uid_field_element_blt =
+        std::make_shared<FieldElement>(collection_id, field_id, milvus::engine::ELEMENT_BLOOM_FILTER,
+                                       milvus::engine::FieldElementType::FET_BLOOM_FILTER);
+    auto uid_field_element_del =
+        std::make_shared<FieldElement>(collection_id, field_id, milvus::engine::ELEMENT_DELETED_DOCS,
+                                       milvus::engine::FieldElementType::FET_DELETED_DOCS);
 
     field_id++;
     /* field vector */
@@ -59,14 +61,17 @@ CreateCollection(std::shared_ptr<DB> db, const std::string& collection_name, con
     auto vector_field_element_index =
         std::make_shared<FieldElement>(collection_id, field_id, milvus::knowhere::IndexEnum::INDEX_FAISS_IVFSQ8,
                                        milvus::engine::FieldElementType::FET_INDEX);
+    /* another field*/
+    auto int_field = std::make_shared<Field>("int", 0, milvus::engine::DataType::INT32,
+                                             milvus::engine::snapshot::JEmpty, field_id++);
 
     context.fields_schema[uid_field] = {uid_field_element_blt, uid_field_element_del};
     context.fields_schema[vector_field] = {vector_field_element_index};
+    context.fields_schema[int_field] = {};
 
     return db->CreateCollection(context);
 }
 }  // namespace
-
 
 TEST_F(DogSegmentTest, TestABI) {
     using namespace milvus::engine;
@@ -87,7 +92,6 @@ TEST_F(DogSegmentTest, TestCreateAndSchema) {
     auto status = CreateCollection(db_, collection_name, next_lsn());
     ASSERT_TRUE(status.ok());
 
-
     // step 1.2: get snapshot
     ScopedSnapshotT snapshot;
     status = Snapshots::GetInstance().GetSnapshot(snapshot, collection_name);
@@ -105,13 +109,27 @@ TEST_F(DogSegmentTest, TestCreateAndSchema) {
     auto collection = snapshot->GetCollection();
 
     auto field_names = snapshot->GetFieldNames();
-    // step 1.4 create a segment from ids
-    for(const auto& field_name: field_names) {
+    auto schema = std::make_shared<Schema>();
+    for (const auto& field_name : field_names) {
         auto field = snapshot->GetField(field_name);
+        auto param = field->GetParams();
         auto type = field->GetFtype();
-    }
-}
+        cout << field_name        //
+             << " " << (int)type  //
+             << " " << param      //
+             << endl;
+        FieldMeta meta(field_name, type);
+        if(meta.is_vector()) {
+            auto dim = param["dim"].get<int>();
+            meta.set_dim(dim);
+        }
 
+        schema->field_metas.push_back(meta);
+    }
+    // step 1.6 create a segment from ids
+    auto segment = CreateSegment(schema);
+
+}
 
 TEST_F(DogSegmentTest, DogSegmentTest) {
     LSN_TYPE lsn = 0;
