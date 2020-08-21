@@ -29,11 +29,11 @@ class SegmentBase {
     // SegmentBase(std::shared_ptr<FieldsInfo> collection);
 
     virtual Status
-    Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps, DogDataChunkPtr values) = 0;
+    Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps, const DogDataChunk& values) = 0;
 
     // TODO: add id into delete log, possibly bitmap
     virtual Status
-    Delete(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps) = 0;
+    Delete(int64_t size, const id_t* primary_keys, const Timestamp* timestamps) = 0;
 
     // query contains metadata of
     virtual Status
@@ -60,13 +60,13 @@ class SegmentBase {
 
     // Remove Index
     virtual Status
-    DropIndex(const std::string& field_name) = 0;
+    DropIndex(std::string_view field_name) = 0;
 
     virtual Status
-    DropRawData(const std::string& field_name) = 0;
+    DropRawData(std::string_view field_name) = 0;
 
     virtual Status
-    LoadRawData(const std::string& field_name, const char* blob, int64_t blob_size) = 0;
+    LoadRawData(std::string_view field_name, const char* blob, int64_t blob_size) = 0;
 
  public:
     virtual ssize_t

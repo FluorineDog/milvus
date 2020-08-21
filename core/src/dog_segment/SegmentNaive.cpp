@@ -20,12 +20,12 @@ class SegmentNaive : public SegmentBase {
     // TODO: originally, id should be put into data_chunk
     // TODO: Is it ok to put them the other side?
     Status
-    Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps,
-           DogDataChunkPtr values) override;
+    Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps,
+           const DogDataChunk& values) override;
 
     // TODO: add id into delete log, possibly bitmap
     Status
-    Delete(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps) override {
+    Delete(int64_t size, const id_t* primary_keys, const Timestamp* timestamps) override {
         throw std::runtime_error("not implemented");
         return Status::OK();
     }
@@ -65,18 +65,18 @@ class SegmentNaive : public SegmentBase {
 
     // Remove Index
     Status
-    DropIndex(const std::string& field_name) override {
+    DropIndex(std::string_view field_name) override {
         throw std::runtime_error("not implemented");
     }
 
     Status
-    DropRawData(const std::string& field_name) override {
+    DropRawData(std::string_view field_name) override {
         // TODO: NO-OP
         return Status::OK();
     }
 
     Status
-    LoadRawData(const std::string& field_name, const char* blob, int64_t blob_size) override {
+    LoadRawData(std::string_view field_name, const char* blob, int64_t blob_size) override {
         // TODO: NO-OP
         return Status::OK();
     }
@@ -177,8 +177,8 @@ CreateSegment(SchemaPtr schema) {
 // TODO: originally, id should be put into data_chunk
 // TODO: Is it ok to put them the other side?
 Status
-SegmentNaive::Insert(const std::vector<id_t>& primary_keys, const std::vector<Timestamp>& timestamps,
-                     DogDataChunkPtr values) {
+SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps,
+                     const DogDataChunk& values) {
     throw std::runtime_error("not implemented");
     return Status::OK();
 }
