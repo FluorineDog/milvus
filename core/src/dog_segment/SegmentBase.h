@@ -98,6 +98,8 @@ class SegmentBase {
     get_deleted_count() const = 0;
 };
 
+using SegmentBasePtr = std::shared_ptr<SegmentBase>;
+
 std::shared_ptr<SegmentBase> CreateSegment(SchemaPtr ptr);
 
 }  // namespace engine
