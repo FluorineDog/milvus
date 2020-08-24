@@ -16,17 +16,8 @@ struct IndexConfig {
     std::unordered_map<std::string, knowhere::Config> configs;
 };
 
-struct FieldInfo {
-    std::string field_name;
-    std::string field_id;
-};
 
-struct FieldsInfo {
-    // TODO: add basic operations
-    std::unordered_map<std::string, FieldElementType> fields;
-};
-
-inline int get_sizeof(DataType data_type, int dim = 1) {
+inline int field_sizeof(DataType data_type, int dim = 1) {
     switch (data_type) {
         case DataType::BOOL:
             return sizeof(bool);
@@ -57,7 +48,7 @@ inline int get_sizeof(DataType data_type, int dim = 1) {
 
 struct FieldMeta {
  public:
-    FieldMeta(std::string_view name, DataType type) : name_(name), type_(type) {
+    FieldMeta(std::string_view name, DataType type, int dim = 1) : name_(name), type_(type), dim_(dim) {
     }
 
     bool
@@ -66,15 +57,21 @@ struct FieldMeta {
         return type_ == DataType::VECTOR_BINARY || type_ == DataType::VECTOR_FLOAT;
     }
 
-    void
-    set_dim(int dim) {
-        assert(type_ != DataType::VECTOR_BINARY || dim % 8 == 0);
+    void set_dim(int dim) {
         dim_ = dim;
     }
 
-    std::string
+    int get_dim() const {
+        return dim_;
+    }
+
+    const std::string&
     get_name() {
         return name_;
+    }
+
+    int get_sizeof() {
+        return field_sizeof(type_, dim_);
     }
 
  private:
@@ -83,47 +80,54 @@ struct FieldMeta {
     int dim_ = 1;
 };
 
+
 class Schema {
+ public:
     void
-    AddField(std::string_view field_name, DataType data_type, int dim = 1);
+    AddField(std::string_view field_name, DataType data_type, int dim = 1) {
+        auto field_meta = FieldMeta(field_name, data_type, dim);
+        this->AddField(std::move(field_meta));
+    }
+
+    void AddField(FieldMeta field_meta) {
+        auto index = fields_.size();
+        fields_.emplace_back(field_meta);
+        indexes_.emplace(field_meta, index);
+    }
 
     auto
     begin() {
-        return field_metas.begin();
+        return fields_.begin();
     }
 
     auto
     end() {
-        return field_metas.end();
+        return fields_.end();
     }
     auto
     begin() const{
-        return field_metas.begin();
+        return fields_.begin();
     }
 
     auto
     end() const{
-        return field_metas.end();
+        return fields_.end();
     }
 
-    int
-    get_field_id(const std::string& field_name) const {
-        auto iter = field_ids.find(field_name);
-        assert(iter != field_ids.end());
-        return iter->second;
+    const FieldMeta& get_field(const std::string& field_name) const {
+        auto index_iter = indexes_.find(field_name);
+        assert(index_iter != indexes_.end());
+        auto index = index_iter->second;
+        return fields_[index];
     }
-
 
  private:
     // this is where data holds
-    std::vector<FieldMeta> field_metas;
+    std::vector<FieldMeta> fields_;
 
  private:
-    bool is_active = false;
-    int field_size = 0;
-    std::unordered_map<std::string, int> field_ids;
-    std::vector<int> field_sizeofs;
-    std::vector<int> dims;
+    // a mapping for random access
+    std::unordered_map<std::string, int> indexes_;
 };
 
 using SchemaPtr = std::shared_ptr<Schema>;

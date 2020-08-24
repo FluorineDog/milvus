@@ -182,7 +182,6 @@ SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* ti
     assert(values.size() == runtime_cache_.field_size);
 
 
-
     throw std::runtime_error("not implemented");
     return Status::OK();
 }
