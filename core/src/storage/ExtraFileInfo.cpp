@@ -17,6 +17,17 @@
 #include "crc32c/crc32c.h"
 #include "storage/ExtraFileInfo.h"
 
+const char* MAGIC = "Milvus";
+const int64_t MAGIC_SIZE = 6;
+const int64_t HEADER_SIZE = 4090;
+const int64_t SUM_SIZE = 16;
+
+bool
+validate(std::string s) {
+    std::regex test("[=;]+");
+    return !std::regex_match(s.begin(), s.end(), test);
+}
+
 namespace milvus {
 namespace storage {
 
@@ -43,7 +54,7 @@ WriteMagic(const storage::FSHandlerPtr& fs_ptr, const std::string& file_path) {
         LOG_ENGINE_ERROR_ << err_msg;
         throw Exception(SERVER_WRITE_ERROR, err_msg);
     }
-    fs_ptr->writer_ptr_->Write((void*)MAGIC, MAGIC_SIZE);
+    fs_ptr->writer_ptr_->Write(const_cast<char*>(MAGIC), MAGIC_SIZE);
     fs_ptr->writer_ptr_->Close();
 }
 
@@ -136,7 +147,7 @@ CheckSum(const storage::FSHandlerPtr& fs_ptr, const std::string& file_path) {
 
     fs_ptr->reader_ptr_->Close();
 
-    auto sum = (uint8_t)atoi(record);
+    auto sum = static_cast<uint8_t>(atoi(record));
     return sum == result;
 }
 
@@ -161,7 +172,11 @@ WriteHeaderValues(const storage::FSHandlerPtr& fs_ptr, const std::string& file_p
 
     std::string kv;
     for (auto& map : maps) {
-        kv.append(map.first + "=" + map.second + ";");
+        if (validate(map.first) && validate(map.second)) {
+            kv.append(map.first + "=" + map.second + ";");
+        } else {
+            throw "Equal and semicolon are illegal character in header data";
+        }
     }
     if (kv.size() > HEADER_SIZE) {
         throw "Exceeded the limit of header data size";
