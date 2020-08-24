@@ -5,12 +5,21 @@
 #include "utils/Status.h"
 #include <tbb/concurrent_vector.h>
 
-namespace milvus::engine {
+namespace milvus::dog_segment {
 
 int
 TestABI() {
     return 42;
 }
+
+struct RuntimeCache {
+    bool is_active = false;
+    int field_size;
+    std::unordered_map<std::string, int> field_ids;
+    std::vector<int> field_sizeofs;
+    std::vector<int> dims;
+    void Build(SchemaPtr schema);
+};
 
 class SegmentNaive : public SegmentBase {
  public:
@@ -138,32 +147,22 @@ class SegmentNaive : public SegmentBase {
     friend std::shared_ptr<SegmentBase>
     CreateSegment(SchemaPtr schema);
     std::vector<tbb::concurrent_vector<float>> raw_data_;
-
-    struct RuntimeCache {
-        bool is_active = false;
-        std::unordered_map<std::string, int> field_ids;
-        std::vector<int> field_sizeofs;
-        std::vector<int> dims;
-        void Build(SchemaPtr schema);
-    };
-
+    // should be part of schema
     RuntimeCache runtime_cache_;
 
 };
 
-void SegmentNaive::RuntimeCache::Build(SchemaPtr schema) {
-    if(is_active) {
-        return;
-    }
-    field_ids.clear();
-    auto& metas = schema->field_metas;
-    for(int i = 0; i < metas.size(); ++i) {
-        auto meta = metas[i];
-        auto field_name = meta.get_name();
-        field_ids[field_name] = i;
-        auto size = meta.get_sizeof();
-    }
-
+void RuntimeCache::Build(SchemaPtr schema) {
+//    if(is_active) {
+//        return;
+//    }
+//    field_ids.clear();
+//    for(int i = 0; i < metas.size(); ++i) {
+//        auto meta = metas[i];
+//        auto field_name = meta.get_name();
+//        field_ids[field_name] = i;
+//        auto size = meta.get_sizeof();
+//    }
 }
 
 std::shared_ptr<SegmentBase>
@@ -179,6 +178,11 @@ CreateSegment(SchemaPtr schema) {
 Status
 SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps,
                      const DogDataChunk& values) {
+    assert(runtime_cache_.is_active);
+    assert(values.size() == runtime_cache_.field_size);
+
+
+
     throw std::runtime_error("not implemented");
     return Status::OK();
 }

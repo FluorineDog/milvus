@@ -7,7 +7,9 @@
 #include "utils/Status.h"
 
 using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
-namespace milvus::engine {
+namespace milvus::dog_segment {
+using engine::DataType;
+using engine::FieldElementType;
 
 struct IndexConfig {
     // TODO
@@ -23,6 +25,35 @@ struct FieldsInfo {
     // TODO: add basic operations
     std::unordered_map<std::string, FieldElementType> fields;
 };
+
+inline int get_sizeof(DataType data_type, int dim = 1) {
+    switch (data_type) {
+        case DataType::BOOL:
+            return sizeof(bool);
+        case DataType::DOUBLE:
+            return sizeof(double);
+        case DataType::FLOAT:
+            return sizeof(float);
+        case DataType::INT8:
+            return sizeof(uint8_t);
+        case DataType::INT16:
+            return sizeof(uint16_t);
+        case DataType::INT32:
+            return sizeof(uint32_t);
+        case DataType::INT64:
+            return sizeof(uint64_t);
+        case DataType::VECTOR_FLOAT:
+            return sizeof(float) * dim;
+        case DataType::VECTOR_BINARY: {
+            assert(dim % 8 == 0);
+            return dim / 8;
+        }
+        default: {
+            assert(false);
+            return 0;
+        }
+    }
+}
 
 struct FieldMeta {
  public:
@@ -41,37 +72,6 @@ struct FieldMeta {
         dim_ = dim;
     }
 
-    size_t
-    get_sizeof() const {
-        switch (type_) {
-            case DataType::BOOL:
-                return sizeof(bool);
-            case DataType::DOUBLE:
-                return sizeof(double);
-            case DataType::FLOAT:
-                return sizeof(float);
-            case DataType::INT8:
-                return sizeof(uint8_t);
-            case DataType::INT16:
-                return sizeof(uint16_t);
-            case DataType::INT32:
-                return sizeof(uint32_t);
-            case DataType::INT64:
-                return sizeof(uint64_t);
-            case DataType::VECTOR_FLOAT:
-                return sizeof(float) * dim_;
-            case DataType::VECTOR_BINARY: {
-                assert(dim_ % 8 == 0);
-                return dim_ / 8;
-
-            }
-            default: {
-                assert(false);
-                return 0;
-            }
-        }
-    }
-
     std::string
     get_name() {
         return name_;
@@ -83,8 +83,47 @@ struct FieldMeta {
     int dim_ = 1;
 };
 
-struct Schema {
+class Schema {
+    void
+    AddField(std::string_view field_name, DataType data_type, int dim = 1);
+
+    auto
+    begin() {
+        return field_metas.begin();
+    }
+
+    auto
+    end() {
+        return field_metas.end();
+    }
+    auto
+    begin() const{
+        return field_metas.begin();
+    }
+
+    auto
+    end() const{
+        return field_metas.end();
+    }
+
+    int
+    get_field_id(const std::string& field_name) const {
+        auto iter = field_ids.find(field_name);
+        assert(iter != field_ids.end());
+        return iter->second;
+    }
+
+
+ private:
+    // this is where data holds
     std::vector<FieldMeta> field_metas;
+
+ private:
+    bool is_active = false;
+    int field_size = 0;
+    std::unordered_map<std::string, int> field_ids;
+    std::vector<int> field_sizeofs;
+    std::vector<int> dims;
 };
 
 using SchemaPtr = std::shared_ptr<Schema>;
@@ -98,4 +137,4 @@ class IndexData {
     deserialize(int64_t size, const char* blob);
 };
 
-}  // namespace milvus::engine
+}  // namespace milvus::dog_segment

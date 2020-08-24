@@ -75,12 +75,14 @@ CreateCollection(std::shared_ptr<DB> db, const std::string& collection_name, con
 
 TEST_F(DogSegmentTest, TestABI) {
     using namespace milvus::engine;
+    using namespace milvus::dog_segment;
     ASSERT_EQ(TestABI(), 42);
     assert(true);
 }
 
 TEST_F(DogSegmentTest, TestCreateAndSchema) {
     using namespace milvus::engine;
+    using namespace milvus::dog_segment;
     // step1: create segment from current snapshot.
 
     LSN_TYPE lsn = 0;

@@ -7,9 +7,13 @@
 #include "query/GeneralQuery.h"
 
 namespace milvus {
-namespace engine {
+namespace dog_segment {
+using engine::DataChunk;
+using engine::DataChunkPtr;
+using engine::QueryResult;
 
-struct DogDataChunk {};
+using DogDataChunk = std::vector<void*>;
+
 using DogDataChunkPtr = std::shared_ptr<DataChunk>;
 
 int
