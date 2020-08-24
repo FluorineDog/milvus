@@ -10,6 +10,7 @@ using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
 namespace milvus::dog_segment {
 using engine::DataType;
 using engine::FieldElementType;
+using DogDataChunk = std::vector<void*>;
 
 struct IndexConfig {
     // TODO

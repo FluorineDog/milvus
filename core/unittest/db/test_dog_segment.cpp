@@ -131,6 +131,7 @@ TEST_F(DogSegmentTest, TestCreateAndSchema) {
     // step 1.6 create a segment from ids
     auto segment = CreateSegment(schema);
 
+
 }
 
 //TEST_F(DogSegmentTest, DogSegmentTest) {

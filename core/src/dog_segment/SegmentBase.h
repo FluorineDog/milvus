@@ -12,7 +12,6 @@ using engine::DataChunk;
 using engine::DataChunkPtr;
 using engine::QueryResult;
 
-using DogDataChunk = std::vector<void*>;
 
 using DogDataChunkPtr = std::shared_ptr<DataChunk>;
 
