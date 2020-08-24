@@ -5,7 +5,7 @@ if [[ ! ${jobs+1} ]]; then
     jobs=$(nproc)
 fi
 
-BUILD_OUTPUT_DIR="cmake_build"
+BUILD_OUTPUT_DIR="cmake-build-debug"
 BUILD_TYPE="Debug"
 BUILD_UNITTEST="OFF"
 INSTALL_PREFIX=$(pwd)/milvus
@@ -146,5 +146,5 @@ if [[ ${RUN_CPPLINT} == "ON" ]]; then
 #  echo "clang-tidy check passed!"
 else
   # compile and build
-  make -j ${jobs} install || exit 1
+  echo make -j ${jobs} install || exit 1
 fi

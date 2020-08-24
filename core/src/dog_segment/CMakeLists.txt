@@ -9,3 +9,4 @@ target_sources( dog_segment PRIVATE
         #${THIRDPARTY_DABLOOMS_FILES}
         )
 #add_dependencies( segment sqlite mysqlpp )
+target_link_libraries(dog_segment tbb)
