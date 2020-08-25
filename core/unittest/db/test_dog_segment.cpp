@@ -130,8 +130,35 @@ TEST_F(DogSegmentTest, TestCreateAndSchema) {
     }
     // step 1.6 create a segment from ids
     auto segment = CreateSegment(schema);
+    std::vector<id_t> primary_ids;
+
+}
 
 
+
+TEST_F(DogSegmentTest, MockTest) {
+    using namespace milvus::dog_segment;
+    using namespace milvus::engine;
+    auto schema = std::make_shared<Schema>();
+    schema->AddField("fakevec", DataType::VECTOR_FLOAT, 16);
+    schema->AddField("age", DataType::INT32);
+    std::vector<char> raw_data;
+    std::vector<Timestamp> timestamps;
+    std::vector<id_t> uids;
+    int N = 10000;
+    std::default_random_engine e(67);
+    for(int i = 0; i < N; ++i) {
+        uids.push_back(100000 + i);
+        // append vec
+        float vec[16];
+        for(auto &x: vec) {
+            x = e() % 2000 * 0.001 - 1.0;
+        }
+        raw_data.insert(raw_data.end(), (const char*)std::begin(vec), (const char*)std::end(vec));
+        int age = e() % 100;
+        raw_data.insert(raw_data.end(), (const char*)&age, ((const char*)&age) + sizeof(age));
+    }
+    assert(raw_data.size() == (sizeof(int) + sizeof(float) * 16) * N);
 }
 
 //TEST_F(DogSegmentTest, DogSegmentTest) {

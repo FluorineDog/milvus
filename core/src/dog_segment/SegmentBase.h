@@ -75,27 +75,18 @@ class SegmentBase {
     virtual ssize_t
     get_row_count() const = 0;
 
-    //    virtual const FieldsInfo&
-    //    get_fields_info() const = 0;
-    //
-    //    // check is_indexed here
-    //    virtual const IndexConfig&
-    //    get_index_param() const = 0;
-
     virtual SegmentState
     get_state() const = 0;
-    //
-    //    std::shared_ptr<IndexData>
-    //    get_index_data();
-
-    virtual Timestamp
-    get_max_timestamp() = 0;
-
-    virtual Timestamp
-    get_min_timestamp() = 0;
 
     virtual ssize_t
     get_deleted_count() const = 0;
+
+ public:
+    // getter and setter
+ private:
+    Timestamp time_begin_;
+    Timestamp time_end_;
+    uint64_t segment_id_;
 };
 
 using SegmentBasePtr = std::shared_ptr<SegmentBase>;

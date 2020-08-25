@@ -12,8 +12,8 @@ using engine::DataType;
 using engine::FieldElementType;
 
 struct DogDataChunk {
-    void* raw_data;     // schema
-    int sizeof_per_row; // alignment
+    void* raw_data;      // schema
+    int sizeof_per_row;  // alignment
     int64_t count;
 };
 
@@ -22,8 +22,8 @@ struct IndexConfig {
     std::unordered_map<std::string, knowhere::Config> configs;
 };
 
-
-inline int field_sizeof(DataType data_type, int dim = 1) {
+inline int
+field_sizeof(DataType data_type, int dim = 1) {
     switch (data_type) {
         case DataType::BOOL:
             return sizeof(bool);
@@ -63,20 +63,28 @@ struct FieldMeta {
         return type_ == DataType::VECTOR_BINARY || type_ == DataType::VECTOR_FLOAT;
     }
 
-    void set_dim(int dim) {
+    void
+    set_dim(int dim) {
         dim_ = dim;
     }
 
-    int get_dim() const {
+    int
+    get_dim() const {
         return dim_;
     }
 
     const std::string&
-    get_name() {
+    get_name() const {
         return name_;
     }
 
-    int get_sizeof() {
+    DataType
+    get_data_type() const {
+        return type_;
+    }
+
+    int
+    get_sizeof() const {
         return field_sizeof(type_, dim_);
     }
 
@@ -86,7 +94,6 @@ struct FieldMeta {
     int dim_ = 1;
 };
 
-
 class Schema {
  public:
     void
@@ -95,7 +102,8 @@ class Schema {
         this->AddField(std::move(field_meta));
     }
 
-    void AddField(FieldMeta field_meta) {
+    void
+    AddField(FieldMeta field_meta) {
         auto index = fields_.size();
         fields_.emplace_back(field_meta);
         indexes_.emplace(field_meta.get_name(), index);
@@ -112,20 +120,30 @@ class Schema {
         return fields_.end();
     }
     auto
-    begin() const{
+    begin() const {
         return fields_.begin();
     }
 
     auto
-    end() const{
+    end() const {
         return fields_.end();
     }
 
-    const FieldMeta& get_field(const std::string& field_name) const {
+    int size() const {
+        return fields_.size();
+    }
+
+    const FieldMeta&
+    operator[](int field_index) const {
+        return fields_[field_index];
+    }
+
+    const FieldMeta&
+    operator[](const std::string& field_name) const {
         auto index_iter = indexes_.find(field_name);
         assert(index_iter != indexes_.end());
         auto index = index_iter->second;
-        return fields_[index];
+        return (*this)[index];
     }
 
  private:

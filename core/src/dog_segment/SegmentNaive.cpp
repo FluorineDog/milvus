@@ -4,6 +4,7 @@
 #include "query/GeneralQuery.h"
 #include "utils/Status.h"
 #include <tbb/concurrent_vector.h>
+#include <tbb/concurrent_unordered_map.h>
 
 namespace milvus::dog_segment {
 
@@ -12,14 +13,28 @@ TestABI() {
     return 42;
 }
 
-struct RuntimeCache {
-    bool is_active = false;
-    int field_size;
-    std::unordered_map<std::string, int> field_ids;
-    std::vector<int> field_sizeofs;
-    std::vector<int> dims;
-    void Build(SchemaPtr schema);
+struct ColumnBasedDataChunk {
+    std::vector<std::vector<float>> entity_vecs;
+    static ColumnBasedDataChunk from(const DogDataChunk& source, const Schema& schema){
+        ColumnBasedDataChunk dest;
+        auto count = source.count;
+        auto raw_data = reinterpret_cast<const char*>(source.raw_data);
+        auto align = source.sizeof_per_row;
+        for(auto& field: schema) {
+            auto len = field.get_sizeof();
+            assert(len % sizeof(float) == 0);
+            std::vector<float> new_col(len * count / sizeof(float));
+            for(int64_t i = 0; i < count; ++i) {
+                memcpy(new_col.data() + i * len / sizeof(float), raw_data + i * align , len);
+            }
+            dest.entity_vecs.push_back(std::move(new_col));
+            // offset the raw_data
+            raw_data += len / sizeof(float);
+        }
+        return dest;
+    }
 };
+
 
 class SegmentNaive : public SegmentBase {
  public:
@@ -34,17 +49,11 @@ class SegmentNaive : public SegmentBase {
 
     // TODO: add id into delete log, possibly bitmap
     Status
-    Delete(int64_t size, const id_t* primary_keys, const Timestamp* timestamps) override {
-        throw std::runtime_error("not implemented");
-        return Status::OK();
-    }
+    Delete(int64_t size, const id_t* primary_keys, const Timestamp* timestamps) override;
 
     // query contains metadata of
     Status
-    Query(const query::QueryPtr& query, Timestamp timestamp, QueryResult& results) override {
-        throw std::runtime_error("not implemented");
-        return Status::OK();
-    };
+    Query(const query::QueryPtr& query, Timestamp timestamp, QueryResult& results) override;
 
     // // THIS FUNCTION IS REMOVED
     // virtual Status
@@ -93,7 +102,7 @@ class SegmentNaive : public SegmentBase {
  public:
     ssize_t
     get_row_count() const override {
-        return count_.load(std::memory_order_relaxed);
+        return ack_count_.load(std::memory_order_relaxed);
     }
 
     //    const FieldsInfo&
@@ -113,57 +122,26 @@ class SegmentNaive : public SegmentBase {
     //    std::shared_ptr<IndexData>
     //    get_index_data();
 
-    Timestamp
-    get_max_timestamp() override {
-        return 0;
-    }
-
-    Timestamp
-    get_min_timestamp() override {
-        return 0;
-    }
-
     ssize_t
     get_deleted_count() const override {
         return 0;
     }
 
  public:
- private:
-
-    SchemaPtr schema_;
-
-    std::shared_mutex mutex_;
-    std::atomic<SegmentState> state_ = SegmentState::Open;
-    std::atomic<int64_t> count_ = 0;
-    //    std::shared_ptr<FieldsInfo> fields_info_;
-    //    std::shared_ptr<IndexConfig> index_param_;
-
-    //    // we are holding data there
-    //    // TODO: should we split index into vector and scalar?
-    //    std::unordered_map<std::string, knowhere::IndexPtr> indexes_;
-
-    //     TODO: data holders
     friend std::shared_ptr<SegmentBase>
     CreateSegment(SchemaPtr schema);
-    std::vector<tbb::concurrent_vector<float>> raw_data_;
-    // should be part of schema
-    RuntimeCache runtime_cache_;
+ private:
+    SchemaPtr schema_;
+    std::shared_mutex mutex_;
+    std::atomic<SegmentState> state_ = SegmentState::Open;
+    std::atomic<int64_t> ack_count_ = 0;
+    tbb::concurrent_vector<id_t> uids_;
+    tbb::concurrent_vector<Timestamp> timestamps_;
+    std::vector<tbb::concurrent_vector<float>> entity_vecs;
+    tbb::concurrent_unordered_map<id_t, int> internal_indexes_;
 
+    tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
 };
-
-void RuntimeCache::Build(SchemaPtr schema) {
-//    if(is_active) {
-//        return;
-//    }
-//    field_ids.clear();
-//    for(int i = 0; i < metas.size(); ++i) {
-//        auto meta = metas[i];
-//        auto field_name = meta.get_name();
-//        field_ids[field_name] = i;
-//        auto size = meta.get_sizeof();
-//    }
-}
 
 std::shared_ptr<SegmentBase>
 CreateSegment(SchemaPtr schema) {
@@ -173,16 +151,90 @@ CreateSegment(SchemaPtr schema) {
 }
 
 
-// TODO: originally, id should be put into data_chunk
-// TODO: Is it ok to put them the other side?
 Status
 SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps,
-                     const DogDataChunk& values) {
-    assert(runtime_cache_.is_active);
-    assert(values.count == runtime_cache_.field_size);
+                     const DogDataChunk& row_values) {
+    const auto& schema = *schema_;
+    auto data_chunk = ColumnBasedDataChunk::from(row_values, schema);
 
-    throw std::runtime_error("not implemented");
+    // insert datas
+    // TODO: use shared_lock
+    std::lock_guard lck(mutex_);
+    assert(state_ == SegmentState::Open);
+    auto ack_id = ack_count_.load();
+    uids_.grow_by(primary_keys, primary_keys + size);
+    for(int64_t i = 0; i < size; ++i) {
+        auto key = primary_keys[i];
+        auto internal_index = i + ack_id;
+        internal_indexes_[key] = internal_index;
+    }
+    timestamps_.grow_by(timestamps, timestamps + size);
+    for(int fid = 0; fid < schema.size(); ++fid) {
+        auto field = schema[fid];
+        auto total_len = field.get_sizeof() * size / sizeof(float);
+        auto source_vec = data_chunk.entity_vecs[fid];
+        entity_vecs[fid].grow_by(source_vec.data(), source_vec.data() + total_len);
+    }
+
+    // finish insert
+    ack_count_ += size;
+    return Status::OK();
+}
+
+Status SegmentNaive::Delete(int64_t size, const id_t *primary_keys, const Timestamp *timestamps) {
+    for(int i = 0; i < size; ++i) {
+        auto key = primary_keys[i];
+        auto time = timestamps[i];
+        delete_logs_.insert(std::make_pair(key, time));
+    }
+    return Status::OK();
+}
+
+// TODO: remove mock
+Status
+SegmentNaive::Query(const query::QueryPtr &query, Timestamp timestamp, QueryResult &result) {
+    std::shared_lock lck(mutex_);
+    auto ack_count = ack_count_.load();
+    assert(query == nullptr);
+    assert(schema_->size() >= 1);
+    const auto& field = schema_->operator[](0);
+    assert(field.get_data_type() == DataType::VECTOR_FLOAT);
+    assert(field.get_name() == "fakevec");
+    auto dim = field.get_dim();
+    // assume query vector is [0, 0, ..., 0]
+    std::vector<float> query_vector(dim, 0);
+    auto& target_vec = entity_vecs[0];
+    int current_index = -1;
+    float min_diff = std::numeric_limits<float>::max();
+    for(int index = 0; index < ack_count; ++index) {
+        float diff = 0;
+        int offset = index * dim;
+        for(auto d = 0; d < dim; ++d) {
+            auto v = target_vec[offset + d] - query_vector[d];
+            diff += v * v;
+        }
+        if(diff < min_diff) {
+            min_diff = diff;
+            current_index = index;
+        }
+    }
+    QueryResult query_result;
+    query_result.row_num_ = 1;
+    query_result.result_distances_.push_back(min_diff);
+    query_result.result_ids_.push_back(uids_[current_index]);
+    query_result.data_chunk_ = nullptr;
+    result = std::move(query_result);
     return Status::OK();
 }
 
 }  // namespace milvus::engine
+
+
+
+
+
+
+
+
+
+
