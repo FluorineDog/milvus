@@ -10,7 +10,12 @@ using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
 namespace milvus::dog_segment {
 using engine::DataType;
 using engine::FieldElementType;
-using DogDataChunk = std::vector<void*>;
+
+struct DogDataChunk {
+    void* raw_data;     // schema
+    int sizeof_per_row; // alignment
+    int64_t count;
+};
 
 struct IndexConfig {
     // TODO
@@ -93,7 +98,7 @@ class Schema {
     void AddField(FieldMeta field_meta) {
         auto index = fields_.size();
         fields_.emplace_back(field_meta);
-        indexes_.emplace(field_meta, index);
+        indexes_.emplace(field_meta.get_name(), index);
     }
 
     auto
