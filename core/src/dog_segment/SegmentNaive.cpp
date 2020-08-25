@@ -179,8 +179,7 @@ Status
 SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps,
                      const DogDataChunk& values) {
     assert(runtime_cache_.is_active);
-    assert(values.size() == runtime_cache_.field_size);
-
+    assert(values.count == runtime_cache_.field_size);
 
     throw std::runtime_error("not implemented");
     return Status::OK();

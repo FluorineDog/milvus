@@ -99,6 +99,7 @@ class Schema {
         auto index = fields_.size();
         fields_.emplace_back(field_meta);
         indexes_.emplace(field_meta.get_name(), index);
+        total_sizeof_ = field_meta.get_sizeof();
     }
 
     auto
@@ -134,6 +135,7 @@ class Schema {
  private:
     // a mapping for random access
     std::unordered_map<std::string, int> indexes_;
+    int total_sizeof_;
 };
 
 using SchemaPtr = std::shared_ptr<Schema>;
