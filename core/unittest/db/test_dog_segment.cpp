@@ -159,10 +159,11 @@ TEST_F(DogSegmentTest, MockTest) {
         int age = e() % 100;
         raw_data.insert(raw_data.end(), (const char*)&age, ((const char*)&age) + sizeof(age));
     }
-    assert(raw_data.size() == (sizeof(int) + sizeof(float) * 16) * N);
+    auto line_sizeof = (sizeof(int) + sizeof(float) * 16);
+    assert(raw_data.size() == line_sizeof * N);
 
     auto segment = CreateSegment(schema);
-    DogDataChunk data_chunk{raw_data.data()};
+    DogDataChunk data_chunk{raw_data.data(), (int)line_sizeof, N};
     segment->Insert(N, uids.data(), timestamps.data(), data_chunk);
     QueryResult query_result;
     segment->Query(nullptr, 0, query_result);
