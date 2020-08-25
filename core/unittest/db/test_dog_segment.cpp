@@ -144,7 +144,7 @@ TEST_F(DogSegmentTest, MockTest) {
     schema->AddField("age", DataType::INT32);
     std::vector<char> raw_data;
     std::vector<Timestamp> timestamps;
-    std::vector<id_t> uids;
+    std::vector<uint64_t> uids;
     int N = 10000;
     std::default_random_engine e(67);
     for(int i = 0; i < N; ++i) {

@@ -44,12 +44,12 @@ class SegmentNaive : public SegmentBase {
     // TODO: originally, id should be put into data_chunk
     // TODO: Is it ok to put them the other side?
     Status
-    Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps,
+    Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
            const DogDataChunk& values) override;
 
     // TODO: add id into delete log, possibly bitmap
     Status
-    Delete(int64_t size, const id_t* primary_keys, const Timestamp* timestamps) override;
+    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps) override;
 
     // query contains metadata of
     Status
@@ -135,10 +135,10 @@ class SegmentNaive : public SegmentBase {
     std::shared_mutex mutex_;
     std::atomic<SegmentState> state_ = SegmentState::Open;
     std::atomic<int64_t> ack_count_ = 0;
-    tbb::concurrent_vector<id_t> uids_;
+    tbb::concurrent_vector<uint64_t> uids_;
     tbb::concurrent_vector<Timestamp> timestamps_;
-    std::vector<tbb::concurrent_vector<float>> entity_vecs;
-    tbb::concurrent_unordered_map<id_t, int> internal_indexes_;
+    std::vector<tbb::concurrent_vector<float>> entity_vecs_;
+    tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
 
     tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
 };
@@ -147,12 +147,13 @@ std::shared_ptr<SegmentBase>
 CreateSegment(SchemaPtr schema) {
     auto segment = std::make_shared<SegmentNaive>();
     segment->schema_ = schema;
+    segment->entity_vecs_.resize(schema->size());
     return segment;
 }
 
 
 Status
-SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* timestamps,
+SegmentNaive::Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
                      const DogDataChunk& row_values) {
     const auto& schema = *schema_;
     auto data_chunk = ColumnBasedDataChunk::from(row_values, schema);
@@ -173,7 +174,7 @@ SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* ti
         auto field = schema[fid];
         auto total_len = field.get_sizeof() * size / sizeof(float);
         auto source_vec = data_chunk.entity_vecs[fid];
-        entity_vecs[fid].grow_by(source_vec.data(), source_vec.data() + total_len);
+        entity_vecs_[fid].grow_by(source_vec.data(), source_vec.data() + total_len);
     }
 
     // finish insert
@@ -181,7 +182,7 @@ SegmentNaive::Insert(int64_t size, const id_t* primary_keys, const Timestamp* ti
     return Status::OK();
 }
 
-Status SegmentNaive::Delete(int64_t size, const id_t *primary_keys, const Timestamp *timestamps) {
+Status SegmentNaive::Delete(int64_t size, const uint64_t *primary_keys, const Timestamp *timestamps) {
     for(int i = 0; i < size; ++i) {
         auto key = primary_keys[i];
         auto time = timestamps[i];
@@ -203,7 +204,7 @@ SegmentNaive::Query(const query::QueryPtr &query, Timestamp timestamp, QueryResu
     auto dim = field.get_dim();
     // assume query vector is [0, 0, ..., 0]
     std::vector<float> query_vector(dim, 0);
-    auto& target_vec = entity_vecs[0];
+    auto& target_vec = entity_vecs_[0];
     int current_index = -1;
     float min_diff = std::numeric_limits<float>::max();
     for(int index = 0; index < ack_count; ++index) {
