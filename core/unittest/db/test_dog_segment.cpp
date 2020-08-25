@@ -149,6 +149,7 @@ TEST_F(DogSegmentTest, MockTest) {
     std::default_random_engine e(67);
     for(int i = 0; i < N; ++i) {
         uids.push_back(100000 + i);
+        timestamps.push_back(0);
         // append vec
         float vec[16];
         for(auto &x: vec) {
@@ -159,6 +160,14 @@ TEST_F(DogSegmentTest, MockTest) {
         raw_data.insert(raw_data.end(), (const char*)&age, ((const char*)&age) + sizeof(age));
     }
     assert(raw_data.size() == (sizeof(int) + sizeof(float) * 16) * N);
+
+    auto segment = CreateSegment(schema);
+    DogDataChunk data_chunk{raw_data.data()};
+    segment->Insert(N, uids.data(), timestamps.data(), data_chunk);
+    QueryResult query_result;
+    segment->Query(nullptr, 0, query_result);
+    int i = 0;
+    i++;
 }
 
 //TEST_F(DogSegmentTest, DogSegmentTest) {
