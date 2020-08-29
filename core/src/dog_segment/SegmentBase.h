@@ -5,6 +5,7 @@
 #include "dog_segment/SegmentDefs.h"
 #include "knowhere/index/Index.h"
 #include "query/GeneralQuery.h"
+#include "knowhere/index/IndexType.h"
 
 namespace milvus {
 namespace dog_segment {
