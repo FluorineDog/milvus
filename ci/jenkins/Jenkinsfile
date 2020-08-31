@@ -2,7 +2,7 @@
 @Library('mpl') _
 
 String cron_timezone = "TZ=Asia/Shanghai"
-String cron_string = BRANCH_NAME == "master" ? "50 22 * * * " : ""
+String cron_string = BRANCH_NAME == "master" ? "50 3 * * * " : ""
 
 pipeline {
     agent none
@@ -66,7 +66,6 @@ pipeline {
                             container("milvus-${BINARY_VERSION}-build-env") {
                                 MPLModule('Milvus Build')
                                 MPLModule('Unittest')
-                                MPLModule('Coverage')
                                 MPLModule('Package Build')
                             }
                         }

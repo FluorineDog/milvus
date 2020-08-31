@@ -26,7 +26,7 @@ get_build_type( TARGET  BUILD_TYPE
 message( STATUS "Build type = ${BUILD_TYPE}" )
 
 get_milvus_version( TARGET  MILVUS_VERSION 
-                            DEFAULT "0.10.0" )
+                            DEFAULT "0.11.0" )
 message( STATUS "Build version = ${MILVUS_VERSION}" )
 
 get_last_commit_id( LAST_COMMIT_ID )
@@ -130,6 +130,10 @@ if ( NOT LINT_EXCLUSIONS_FILE )
     set( LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt )
 endif ()
 
+if ( NOT IGNORE_CHECKS_FILE )
+    set( IGNORE_CHECKS_FILE ${BUILD_SUPPORT_DIR}/ignore_checks.txt )
+endif ()
+
 find_program( CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR} )
 message( STATUS "Found cpplint executable at ${CPPLINT_BIN}" )
 
@@ -185,6 +189,7 @@ if ( ${CLANG_TIDY_FOUND} )
         ${PYTHON_EXECUTABLE}    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
                                 --clang_tidy_binary ${CLANG_TIDY_BIN}
                                 --exclude_globs     ${LINT_EXCLUSIONS_FILE}
+                                --ignore_checks     ${IGNORE_CHECKS_FILE}
                                 --compile_commands  ${CMAKE_BINARY_DIR}/compile_commands.json
                                 --source_dir        ${CMAKE_CURRENT_SOURCE_DIR}/src
                                 ${MILVUS_LINT_QUIET} )

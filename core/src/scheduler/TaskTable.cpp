@@ -17,6 +17,7 @@
 #include "utils/Log.h"
 #include "utils/TimeRecorder.h"
 
+#include <src/scheduler/task/SearchTask.h>
 #include <ctime>
 #include <sstream>
 #include <vector>
@@ -170,7 +171,6 @@ TaskTable::PickToLoad(uint64_t limit) {
         }
         if (not cross && table_[index]->IsFinish()) {
             table_.set_front(index);
-            table_[index]->SetFinished(FinishedTask::Create());
         } else if (table_[index]->state == TaskTableItemState::LOADED) {
             cross = true;
             ++loaded_count;
@@ -190,6 +190,8 @@ TaskTable::PickToLoad(uint64_t limit) {
             cross = true;
             indexes.push_back(index);
             ++pick_count;
+        } else {
+            cross = true;
         }
     }
     // rc.ElapseFromBegin("PickToLoad ");
@@ -258,11 +260,12 @@ TaskTable::PickToExecute(uint64_t limit) {
 
         if (not cross && table_[index]->IsFinish()) {
             table_.set_front(index);
-            table_[index]->SetFinished(FinishedTask::Create());
         } else if (table_[index]->state == TaskTableItemState::LOADED) {
             cross = true;
             indexes.push_back(index);
             ++pick_count;
+        } else {
+            cross = true;
         }
     }
     // rc.ElapseFromBegin("PickToExecute ");

@@ -97,9 +97,10 @@ ValidateCollectionName(const std::string& collection_name) {
     }
 
     std::string invalid_msg = "Invalid collection name: " + collection_name + ". ";
-    // Collection name size shouldn't exceed 255.
+    // Collection name size shouldn't exceed engine::MAX_NAME_LENGTH.
     if (collection_name.size() > engine::MAX_NAME_LENGTH) {
-        std::string msg = invalid_msg + "The length of a collection name must be less than 255 characters.";
+        std::string msg = invalid_msg + "The length of a collection name must be less than " +
+                          std::to_string(engine::MAX_NAME_LENGTH) + " characters.";
         LOG_SERVER_ERROR_ << msg;
         return Status(SERVER_INVALID_COLLECTION_NAME, msg);
     }
@@ -135,9 +136,10 @@ ValidateFieldName(const std::string& field_name) {
     }
 
     std::string invalid_msg = "Invalid field name: " + field_name + ". ";
-    // Field name size shouldn't exceed 255.
+    // Field name size shouldn't exceed engine::MAX_NAME_LENGTH.
     if (field_name.size() > engine::MAX_NAME_LENGTH) {
-        std::string msg = invalid_msg + "The length of a field name must be less than 255 characters.";
+        std::string msg = invalid_msg + "The length of a field name must be less than " +
+                          std::to_string(engine::MAX_NAME_LENGTH) + " characters.";
         LOG_SERVER_ERROR_ << msg;
         return Status(SERVER_INVALID_FIELD_NAME, msg);
     }
@@ -246,7 +248,13 @@ ValidateIndexParams(const milvus::json& index_params, int64_t dimension, const s
         }
 
         // special check for 'm' parameter
-        std::vector<int64_t> resset;
+        int64_t m_value = index_params[knowhere::IndexParams::m];
+        if (!milvus::knowhere::IVFPQConfAdapter::GetValidCPUM(dimension, m_value)) {
+            std::string msg = "Invalid m, dimension can't not be divided by m ";
+            LOG_SERVER_ERROR_ << msg;
+            return Status(SERVER_INVALID_ARGUMENT, msg);
+        }
+        /*std::vector<int64_t> resset;
         milvus::knowhere::IVFPQConfAdapter::GetValidMList(dimension, resset);
         int64_t m_value = index_params[knowhere::IndexParams::m];
         if (resset.empty()) {
@@ -268,7 +276,7 @@ ValidateIndexParams(const milvus::json& index_params, int64_t dimension, const s
 
             LOG_SERVER_ERROR_ << msg;
             return Status(SERVER_INVALID_ARGUMENT, msg);
-        }
+        }*/
     } else if (index_type == knowhere::IndexEnum::INDEX_NSG) {
         auto status = CheckParameterRange(index_params, knowhere::IndexParams::search_length, 10, 300);
         if (!status.ok()) {
@@ -305,9 +313,13 @@ ValidateIndexParams(const milvus::json& index_params, int64_t dimension, const s
             }
 
             // special check for 'PQM' parameter
-            std::vector<int64_t> resset;
-            milvus::knowhere::IVFPQConfAdapter::GetValidMList(dimension, resset);
             int64_t pqm_value = index_params[knowhere::IndexParams::PQM];
+            if (!milvus::knowhere::IVFPQConfAdapter::GetValidCPUM(dimension, pqm_value)) {
+                std::string msg = "Invalid m, dimension can't not be divided by m ";
+                LOG_SERVER_ERROR_ << msg;
+                return Status(SERVER_INVALID_ARGUMENT, msg);
+            }
+            /*int64_t pqm_value = index_params[knowhere::IndexParams::PQM];
             if (resset.empty()) {
                 std::string msg = "Invalid collection dimension, unable to get reasonable values for 'PQM'";
                 LOG_SERVER_ERROR_ << msg;
@@ -327,7 +339,7 @@ ValidateIndexParams(const milvus::json& index_params, int64_t dimension, const s
 
                 LOG_SERVER_ERROR_ << msg;
                 return Status(SERVER_INVALID_ARGUMENT, msg);
-            }
+            }*/
         }
     } else if (index_type == knowhere::IndexEnum::INDEX_ANNOY) {
         auto status = CheckParameterRange(index_params, knowhere::IndexParams::n_trees, 1, 1024);
@@ -352,24 +364,9 @@ ValidateSegmentRowCount(int64_t segment_row_count) {
 
 Status
 ValidateIndexMetricType(const std::string& metric_type, const std::string& index_type) {
-    static std::set<std::string> s_valid_metric = {
-        milvus::knowhere::Metric::L2,
-        milvus::knowhere::Metric::IP,
-        milvus::knowhere::Metric::HAMMING,
-        milvus::knowhere::Metric::JACCARD,
-        milvus::knowhere::Metric::TANIMOTO,
-        milvus::knowhere::Metric::SUBSTRUCTURE,
-        milvus::knowhere::Metric::SUPERSTRUCTURE,
-    };
-
     if (index_type == knowhere::IndexEnum::INDEX_FAISS_IDMAP ||
         index_type == knowhere::IndexEnum::INDEX_FAISS_BIN_IDMAP) {
-        if (s_valid_metric.find(metric_type) == s_valid_metric.end()) {
-            std::string msg =
-                "Invalid index metric type: " + metric_type + ". " + "Make sure the metric type is in MetricType list.";
-            LOG_SERVER_ERROR_ << msg;
-            return Status(SERVER_INVALID_INDEX_METRIC_TYPE, msg);
-        }
+        // pass
     } else if (index_type == knowhere::IndexEnum::INDEX_FAISS_BIN_IVFFLAT) {
         // binary
         if (metric_type != knowhere::Metric::HAMMING && metric_type != knowhere::Metric::JACCARD &&
@@ -438,8 +435,9 @@ ValidatePartitionTags(const std::vector<std::string>& partition_tags) {
         }
 
         // max length of partition tag
-        if (valid_tag.length() > 255) {
-            std::string msg = "Invalid partition tag: " + valid_tag + ". " + "Partition tag exceed max length(255).";
+        if (valid_tag.length() > engine::MAX_NAME_LENGTH) {
+            std::string msg = "Invalid partition tag: " + valid_tag + ". " +
+                              "Partition tag exceed max length: " + std::to_string(engine::MAX_NAME_LENGTH);
             LOG_SERVER_ERROR_ << msg;
             return Status(SERVER_INVALID_PARTITION_TAG, msg);
         }
@@ -450,26 +448,20 @@ ValidatePartitionTags(const std::vector<std::string>& partition_tags) {
 
 Status
 ValidateInsertDataSize(const engine::DataChunkPtr& data) {
-    int64_t total_size = 0;
-    for (auto& pair : data->fixed_fields_) {
-        if (pair.second == nullptr) {
-            continue;
-        }
-
-        total_size += pair.second->Size();
-    }
-
-    for (auto& pair : data->variable_fields_) {
-        if (pair.second == nullptr) {
-            continue;
-        }
-
-        total_size += pair.second->Size();
-    }
-
-    if (total_size > engine::MAX_INSERT_DATA_SIZE) {
+    int64_t chunk_size = engine::utils::GetSizeOfChunk(data);
+    if (chunk_size > engine::MAX_INSERT_DATA_SIZE) {
         std::string msg = "The amount of data inserted each time cannot exceed " +
                           std::to_string(engine::MAX_INSERT_DATA_SIZE / engine::MB) + " MB";
+        return Status(SERVER_INVALID_ROWRECORD_ARRAY, msg);
+    }
+
+    return Status::OK();
+}
+
+Status
+ValidateCompactThreshold(double threshold) {
+    if (threshold > 1.0 || threshold < 0.0) {
+        std::string msg = "Invalid compact threshold: " + std::to_string(threshold) + ". Should be in range [0.0, 1.0]";
         return Status(SERVER_INVALID_ROWRECORD_ARRAY, msg);
     }
 
