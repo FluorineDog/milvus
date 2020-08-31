@@ -60,7 +60,7 @@ class SegmentBase {
     // This function is atomic
     // NOTE: index_params contains serveral policies for several index
     virtual Status
-    BuildIndex(std::shared_ptr<IndexConfig> index_params) = 0;
+    BuildIndex() = 0;
 
     // Remove Index
     virtual Status

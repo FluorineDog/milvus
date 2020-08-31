@@ -77,9 +77,13 @@ class SegmentNaive : public SegmentBase {
     // This function is atomic
     // NOTE: index_params contains serveral policies for several index
     Status
-    BuildIndex(std::shared_ptr<IndexConfig> index_params) override {
+    BuildIndex() override {
         throw std::runtime_error("not implemented");
     }
+
+    // Status AddIndex(const std::string& name, IndexingConfig) override {
+    //     assert()
+    // }
 
     // Remove Index
     Status
@@ -139,6 +143,8 @@ class SegmentNaive : public SegmentBase {
     tbb::concurrent_vector<Timestamp> timestamps_;
     std::vector<tbb::concurrent_vector<float>> entity_vecs_;
     tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
+    std::unordered_map<int, IndexingConfig> indexing_configs_;
+    std::unordered_map<int, knowhere::IndexPtr> indexings_;
 
     tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
 };
@@ -229,13 +235,3 @@ SegmentNaive::Query(const query::QueryPtr &query, Timestamp timestamp, QueryResu
 }
 
 }  // namespace milvus::engine
-
-
-
-
-
-
-
-
-
-

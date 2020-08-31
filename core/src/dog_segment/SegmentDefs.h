@@ -17,9 +17,10 @@ struct DogDataChunk {
     int64_t count;
 };
 
-struct IndexConfig {
-    // TODO
-    std::unordered_map<std::string, knowhere::Config> configs;
+struct IndexingConfig {
+    knowhere::IndexType type;
+    knowhere::IndexMode mode;
+    knowhere::Config config;
 };
 
 inline int
@@ -46,7 +47,7 @@ field_sizeof(DataType data_type, int dim = 1) {
             return dim / 8;
         }
         default: {
-            assert(false);
+            throw std::invalid_argument("unsupported data type");
             return 0;
         }
     }
@@ -104,9 +105,9 @@ class Schema {
 
     void
     AddField(FieldMeta field_meta) {
-        auto index = fields_.size();
+        auto offset = fields_.size();
         fields_.emplace_back(field_meta);
-        indexes_.emplace(field_meta.get_name(), index);
+        offsets_.emplace(field_meta.get_name(), offset);
         total_sizeof_ = field_meta.get_sizeof();
     }
 
@@ -140,10 +141,10 @@ class Schema {
 
     const FieldMeta&
     operator[](const std::string& field_name) const {
-        auto index_iter = indexes_.find(field_name);
-        assert(index_iter != indexes_.end());
-        auto index = index_iter->second;
-        return (*this)[index];
+        auto offset_iter = offsets_.find(field_name);
+        assert(offset_iter != offsets_.end());
+        auto offset = offset_iter->second;
+        return (*this)[offset];
     }
 
  private:
@@ -152,19 +153,10 @@ class Schema {
 
  private:
     // a mapping for random access
-    std::unordered_map<std::string, int> indexes_;
+    std::unordered_map<std::string, int> offsets_;
     int total_sizeof_;
 };
 
 using SchemaPtr = std::shared_ptr<Schema>;
-
-class IndexData {
- public:
-    virtual std::vector<char>
-    serilize() = 0;
-
-    static std::shared_ptr<IndexData>
-    deserialize(int64_t size, const char* blob);
-};
 
 }  // namespace milvus::dog_segment
