@@ -66,6 +66,8 @@ class SegmentBase {
     virtual Status
     DropIndex(std::string_view field_name) = 0;
 
+    // virtual SetVecIndex(std::string_view field, );
+
     virtual Status
     DropRawData(std::string_view field_name) = 0;
 
