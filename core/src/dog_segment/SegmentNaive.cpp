@@ -77,18 +77,15 @@ class SegmentNaive : public SegmentBase {
     // This function is atomic
     // NOTE: index_params contains serveral policies for several index
     Status
-    BuildIndex() override {
+    UpdateIndex() override {
         throw std::runtime_error("not implemented");
     }
 
     // Status AddIndex(const std::string& name, IndexingConfig) override {
     //     assert()
     // }
-
-    // Remove Index
-    Status
-    DropIndex(std::string_view field_name) override {
-        throw std::runtime_error("not implemented");
+    Status SetIndexMeta(IndexMetaPtr index_meta) override {
+        index_meta_ = index_meta;
     }
 
     Status
@@ -143,7 +140,7 @@ class SegmentNaive : public SegmentBase {
     tbb::concurrent_vector<Timestamp> timestamps_;
     std::vector<tbb::concurrent_vector<float>> entity_vecs_;
     tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
-    std::unordered_map<int, IndexingConfig> indexing_configs_;
+    IndexMetaPtr index_meta_;
     std::unordered_map<int, knowhere::IndexPtr> indexings_;
 
     tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
@@ -151,6 +148,7 @@ class SegmentNaive : public SegmentBase {
 
 std::shared_ptr<SegmentBase>
 CreateSegment(SchemaPtr schema) {
+    auto p =  new SegmentNaive;
     auto segment = std::make_shared<SegmentNaive>();
     segment->schema_ = schema;
     segment->entity_vecs_.resize(schema->size());

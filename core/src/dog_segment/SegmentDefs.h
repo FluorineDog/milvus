@@ -17,11 +17,6 @@ struct DogDataChunk {
     int64_t count;
 };
 
-struct IndexingConfig {
-    knowhere::IndexType type;
-    knowhere::IndexMode mode;
-    knowhere::Config config;
-};
 
 inline int
 field_sizeof(DataType data_type, int dim = 1) {

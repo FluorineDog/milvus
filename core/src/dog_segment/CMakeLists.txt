@@ -1,4 +1,5 @@
 set(DOG_SEGMENT_FILES
+        IndexMeta.cpp
         SegmentNaive.cpp
         )
 # Third Party dablooms file

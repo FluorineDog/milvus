@@ -1,18 +1,18 @@
 #pragma once
 #include <vector>
 
+#include "IndexMeta.h"
 #include "db/Types.h"
 #include "dog_segment/SegmentDefs.h"
 #include "knowhere/index/Index.h"
-#include "query/GeneralQuery.h"
 #include "knowhere/index/IndexType.h"
+#include "query/GeneralQuery.h"
 
 namespace milvus {
 namespace dog_segment {
 using engine::DataChunk;
 using engine::DataChunkPtr;
 using engine::QueryResult;
-
 
 using DogDataChunkPtr = std::shared_ptr<DataChunk>;
 
@@ -56,17 +56,16 @@ class SegmentBase {
     //    virtual Status
     //    Flush(Timestamp timestamp) = 0;
 
+    // watch changes
+    // NOTE: Segment will use this ptr as correct
+    virtual Status
+    SetIndexMeta(IndexMetaPtr IndexMeta) = 0;
+
     // BuildIndex With Paramaters, must with Frozen State
     // This function is atomic
     // NOTE: index_params contains serveral policies for several index
     virtual Status
-    BuildIndex() = 0;
-
-    // Remove Index
-    virtual Status
-    DropIndex(std::string_view field_name) = 0;
-
-    // virtual SetVecIndex(std::string_view field, );
+    UpdateIndex() = 0;
 
     virtual Status
     DropRawData(std::string_view field_name) = 0;
@@ -94,7 +93,8 @@ class SegmentBase {
 
 using SegmentBasePtr = std::shared_ptr<SegmentBase>;
 
-std::shared_ptr<SegmentBase> CreateSegment(SchemaPtr ptr);
+std::shared_ptr<SegmentBase>
+CreateSegment(SchemaPtr ptr);
 
-}  // namespace engine
+}  // namespace dog_segment
 }  // namespace milvus
