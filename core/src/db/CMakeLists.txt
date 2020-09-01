@@ -66,8 +66,8 @@ target_include_directories( milvus_engine
 # **************************** Libraries to be linked with target Engine ****************************
 set( ENGINE_LIBS    pthread
                     libstdc++fs.a
-                    libgomp.a
-                    libgfortran.a
+                    gomp
+                    gfortran
                     )
 
 set( GRPC_LIB   libprotobuf
@@ -80,6 +80,7 @@ set( BOOST_LIB  libboost_system.a
                 libboost_serialization.a
                 )
 
+                
 set( THIRD_PARTY_LIBS   sqlite
                         yaml-cpp # log
                         mysqlpp
@@ -115,7 +116,7 @@ if ( MILVS_WITH_AWS )
 endif ()
 
 if ( NOT ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" )
-    list( APPEND THIRD_PARTY_LIBS libquadmath.a )
+    list( APPEND THIRD_PARTY_LIBS quadmath )
 endif ()
 
 
