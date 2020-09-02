@@ -1,5 +1,6 @@
 #include "IndexMeta.h"
 #include <mutex>
+#include <cassert>
 namespace milvus::dog_segment {
 
 Status
@@ -13,14 +14,11 @@ IndexMeta::AddEntry(const std::string& index_name, const std::string& field_name
         mode,
         std::move(config)
     };
-    if(!VerifyEntry(entry)) {
-        throw std::invalid_argument("invalid entry");
-    }
+    VerifyEntry(entry);
     std::lock_guard lck(mutex_);
     if (entries_.count(index_name)) {
         throw std::invalid_argument("duplicate index_name");
     }
-
     // TODO: enable multiple index for fields
     // TODO: now just use the most recent one
     lookups_[index_name] = index_name;
@@ -43,10 +41,12 @@ void IndexMeta::VerifyEntry(const Entry &entry) {
 
     auto& schema = *schema_;
     auto& field_meta = schema[entry.index_name];
+    // TODO checking
     if(field_meta.is_vector()) {
-
+        assert(entry.type == knowhere::IndexEnum::INDEX_FAISS_IVFFLAT);
+    } else {
+        assert(false);
     }
-    return true;
 }
 
 }  // namespace milvus::dog_segment
