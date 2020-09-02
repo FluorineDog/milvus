@@ -48,6 +48,11 @@ field_sizeof(DataType data_type, int dim = 1) {
     }
 }
 
+inline bool
+field_is_vector(DataType datatype) {
+    return datatype == DataType::VECTOR_BINARY || datatype == DataType::VECTOR_FLOAT;
+}
+
 struct FieldMeta {
  public:
     FieldMeta(std::string_view name, DataType type, int dim = 1) : name_(name), type_(type), dim_(dim) {

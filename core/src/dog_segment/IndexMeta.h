@@ -16,6 +16,7 @@ class IndexMeta {
     struct Entry {
         uint64_t entry_uid;
         std::string index_name;
+        std::string field_name;
         IndexType type;
         IndexMode mode;
         IndexConfig config;
@@ -28,7 +29,7 @@ class IndexMeta {
     DropEntry(std::string_view index_name);
 
  private:
-    bool VerifyEntry(Entry& entry);
+    void VerifyEntry(const Entry& entry);
 
  private:
     std::shared_mutex mutex_;
