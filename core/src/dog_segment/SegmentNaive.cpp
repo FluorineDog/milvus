@@ -5,6 +5,7 @@
 #include "utils/Status.h"
 #include <tbb/concurrent_vector.h>
 #include <tbb/concurrent_unordered_map.h>
+#include "knowhere/index/structured_index/StructuredIndex.h"
 
 namespace milvus::dog_segment {
 
@@ -140,8 +141,12 @@ class SegmentNaive : public SegmentBase {
     tbb::concurrent_vector<Timestamp> timestamps_;
     std::vector<tbb::concurrent_vector<float>> entity_vecs_;
     tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
+
     IndexMetaPtr index_meta_;
-    std::unordered_map<int, knowhere::IndexPtr> indexings_;
+
+    std::unordered_map<int, knowhere::VecIndexPtr> vec_indexings_;
+    // TODO: use StructuredIndex or other subtype
+    std::unordered_map<int, knowhere::IndexPtr> scalar_indexings_;
 
     tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
 };
@@ -162,8 +167,7 @@ SegmentNaive::Insert(int64_t size, const uint64_t* primary_keys, const Timestamp
     const auto& schema = *schema_;
     auto data_chunk = ColumnBasedDataChunk::from(row_values, schema);
 
-    // insert datas
-    // TODO: use shared_lock
+    // TODO: use shared_lock for better concurrency
     std::lock_guard lck(mutex_);
     assert(state_ == SegmentState::Open);
     auto ack_id = ack_count_.load();
