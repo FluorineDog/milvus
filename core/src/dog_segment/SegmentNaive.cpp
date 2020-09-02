@@ -87,6 +87,7 @@ class SegmentNaive : public SegmentBase {
     // }
     Status SetIndexMeta(IndexMetaPtr index_meta) override {
         index_meta_ = index_meta;
+        return Status::OK();
     }
 
     Status
