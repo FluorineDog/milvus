@@ -130,7 +130,7 @@ TEST_F(DogSegmentTest, TestCreateAndSchema) {
 
     }
     // step 1.6 create a segment from ids
-    auto segment = CreateSegment(schema);
+    auto segment = CreateSegment(schema, nullptr);
     std::vector<id_t> primary_ids;
 
 }
@@ -166,8 +166,8 @@ TEST_F(DogSegmentTest, MockTest) {
 
 
 
-    auto segment = CreateSegment(schema);
-
+    auto index_meta = std::make_shared<IndexMeta>(schema);
+    auto segment = CreateSegment(schema, index_meta);
 
     DogDataChunk data_chunk{raw_data.data(), (int)line_sizeof, N};
 

@@ -85,10 +85,7 @@ class SegmentNaive : public SegmentBase {
     // Status AddIndex(const std::string& name, IndexingConfig) override {
     //     assert()
     // }
-    Status SetIndexMeta(IndexMetaPtr index_meta) override {
-        index_meta_ = index_meta;
-        return Status::OK();
-    }
+
 
     Status
     DropRawData(std::string_view field_name) override {
@@ -132,7 +129,7 @@ class SegmentNaive : public SegmentBase {
 
  public:
     friend std::shared_ptr<SegmentBase>
-    CreateSegment(SchemaPtr schema);
+    CreateSegment(SchemaPtr schema, IndexMetaPtr index_meta);
  private:
     SchemaPtr schema_;
     std::shared_mutex mutex_;
@@ -145,6 +142,7 @@ class SegmentNaive : public SegmentBase {
 
     IndexMetaPtr index_meta_;
 
+
     std::unordered_map<int, knowhere::VecIndexPtr> vec_indexings_;
     // TODO: use StructuredIndex or other subtype
     std::unordered_map<int, knowhere::IndexPtr> scalar_indexings_;
@@ -153,10 +151,11 @@ class SegmentNaive : public SegmentBase {
 };
 
 std::shared_ptr<SegmentBase>
-CreateSegment(SchemaPtr schema) {
-    auto p =  new SegmentNaive;
+CreateSegment(SchemaPtr schema, IndexMetaPtr index_meta)  {
+    // auto p = std::make_unique<SegmentNaive>().release();
     auto segment = std::make_shared<SegmentNaive>();
     segment->schema_ = schema;
+    segment->index_meta_ = index_meta;
     segment->entity_vecs_.resize(schema->size());
     return segment;
 }

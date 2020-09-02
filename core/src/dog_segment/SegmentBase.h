@@ -58,8 +58,6 @@ class SegmentBase {
 
     // watch changes
     // NOTE: Segment will use this ptr as correct
-    virtual Status
-    SetIndexMeta(IndexMetaPtr IndexMeta) = 0;
 
     // BuildIndex With Paramaters, must with Frozen State
     // This function is atomic
@@ -84,7 +82,7 @@ class SegmentBase {
     get_deleted_count() const = 0;
 
  public:
-    // getter and setter
+
  private:
     Timestamp time_begin_;
     Timestamp time_end_;
@@ -94,7 +92,7 @@ class SegmentBase {
 using SegmentBasePtr = std::shared_ptr<SegmentBase>;
 
 std::shared_ptr<SegmentBase>
-CreateSegment(SchemaPtr ptr);
+CreateSegment(SchemaPtr schema, IndexMetaPtr index_meta);
 
 }  // namespace dog_segment
 }  // namespace milvus
