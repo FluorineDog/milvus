@@ -1,5 +1,6 @@
 #include <tbb/concurrent_unordered_map.h>
 #include <tbb/concurrent_vector.h>
+#include <tbb/concurrent_priority_queue.h>
 
 #include <shared_mutex>
 
@@ -9,6 +10,23 @@
 #include "utils/Status.h"
 
 namespace milvus::dog_segment {
+
+class AckResponder {
+ public:
+    void AddSegment(int64_t seg_begin, int64_t seg_end) {
+        std::lock_guard lck(mutex_);
+        acks_.count(seg_begin);
+    }
+
+    void alter(int64_t endpoint) {
+        if(acks_.count(endpoint)) {
+            
+        }
+    }
+ private:
+    std::shared_mutex mutex_;
+    std::set<int64_t> acks_ = {0};
+};
 
 int
 TestABI() {
@@ -57,25 +75,16 @@ class SegmentNaive : public SegmentBase {
     Status
     Query(const query::QueryPtr& query, Timestamp timestamp, QueryResult& results) override;
 
-    // // THIS FUNCTION IS REMOVED
-    // virtual Status
-    // GetEntityByIds(Timestamp timestamp, const std::vector<Id>& ids, DataChunkPtr& results) = 0;
-
     // stop receive insert requests
     // will move data to immutable vector or something
     Status
     Close() override;
 
-    //    // to make all data inserted visible
-    //    // maybe a no-op?
-    //    virtual Status
-    //    Flush(Timestamp timestamp) = 0;
-
     // BuildIndex With Paramaters, must with Frozen State
-    // This function is atomic
     // NOTE: index_params contains serveral policies for several index
     Status
     UpdateIndex() override {
+
         throw std::runtime_error("not implemented");
     }
 
@@ -118,11 +127,11 @@ class SegmentNaive : public SegmentBase {
 
     std::shared_ptr<MutableRecord>
     GetMutable() {
-        if (immutable_ready_) {
+        if (ready_immutable_) {
             return nullptr;
         }
         std::shared_lock lck(mutex_);
-        return mutable_data_;
+        return record_mutable_;
     }
 
  public:
@@ -155,16 +164,18 @@ class SegmentNaive : public SegmentBase {
 
     tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
 
-    std::shared_ptr<MutableRecord> mutable_data_;
+    std::shared_ptr<MutableRecord> record_mutable_;
 
-    std::atomic<bool> immutable_ready_ = false;
-    std::shared_ptr<ImmutableRecord> immutable_data_ = nullptr;
+    // to determined that if immutable data if available
+    std::atomic<bool> ready_immutable_ = false;
+    std::shared_ptr<ImmutableRecord> record_immutable_ = nullptr;
+
 
     IndexMetaPtr index_meta_;
-
     std::unordered_map<int, knowhere::VecIndexPtr> vec_indexings_;
-    // TODO: use StructuredIndex or other subtype
-    std::unordered_map<int, knowhere::IndexPtr> scalar_indexings_;
+
+    // TODO: scalar indexing
+    // std::unordered_map<int, knowhere::IndexPtr> scalar_indexings_;
 
     tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
 };
@@ -174,7 +185,7 @@ CreateSegment(SchemaPtr schema, IndexMetaPtr index_meta) {
     auto segment = std::make_shared<SegmentNaive>();
     segment->schema_ = schema;
     segment->index_meta_ = index_meta;
-    segment->mutable_data_ = std::make_shared<SegmentNaive::MutableRecord>(schema->size());
+    segment->record_mutable_ = std::make_shared<SegmentNaive::MutableRecord>(schema->size());
 
     return segment;
 }
@@ -266,19 +277,36 @@ SegmentNaive::Query(const query::QueryPtr& query, Timestamp timestamp, QueryResu
     if (record_ptr) {
         return QueryImpl(*record_ptr, query, timestamp, result);
     } else {
-        assert(immutable_ready_);
-        return QueryImpl(*immutable_data_, query, timestamp, result);
+        assert(ready_immutable_);
+        return QueryImpl(*record_immutable_, query, timestamp, result);
     }
 }
 
 Status
 SegmentNaive::Close() {
-    auto record_ptr = GetMutable();
-    assert(record_ptr);
-    auto& record = *record_ptr;
+    auto src_record = GetMutable();
+    assert(src_record);
 
-    auto immutable_record = std::make_shared<ImmutableRecord>(schema_->size());
-    
+    auto dst_record = std::make_shared<ImmutableRecord>(schema_->size());
+
+    auto data_move = [](auto& dst_vec, const auto& src_vec) {
+        assert(dst_vec.size() == 0);
+        dst_vec.insert(dst_vec.begin(), src_vec.begin(), src_vec.end());
+    };
+    data_move(dst_record->uids_, src_record->uids_);
+    data_move(dst_record->timestamps_, src_record->uids_);
+
+    assert(src_record->entity_vecs_.size() == schema_->size());
+    assert(dst_record->entity_vecs_.size() == schema_->size());
+    for(int i = 0; i < schema_->size(); ++i) {
+        data_move(dst_record->entity_vecs_[i], src_record->entity_vecs_[i]);
+    }
+    bool ready_old = false;
+    record_immutable_ = dst_record;
+    ready_immutable_.compare_exchange_strong(ready_old, true);
+    if(ready_old) {
+        throw std::logic_error("Close may be called twice, with potential race condition");
+    }
 
     return Status::OK();
 }
