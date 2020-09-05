@@ -7,7 +7,6 @@ Status
 IndexMeta::AddEntry(const std::string& index_name, const std::string& field_name, IndexType type, IndexMode mode,
                     IndexConfig config) {
     Entry entry{
-        uid_source_++,
         index_name,
         field_name,
         type,
@@ -15,21 +14,25 @@ IndexMeta::AddEntry(const std::string& index_name, const std::string& field_name
         std::move(config)
     };
     VerifyEntry(entry);
-    std::lock_guard lck(mutex_);
+
     if (entries_.count(index_name)) {
         throw std::invalid_argument("duplicate index_name");
     }
-    // TODO: enable multiple index for fields
-    // TODO: now just use the most recent one
-    lookups_[index_name] = index_name;
+    // TODO: support multiple indexes for single field
+    assert(!lookups_.count(field_name));
+    lookups_[field_name] = index_name;
+    entries_[index_name] = std::move(entry);
 
     return Status::OK();
 }
 
 Status
-IndexMeta::DropEntry(std::string_view index_name) {
-    std::lock_guard lck(mutex_);
-
+IndexMeta::DropEntry(const std::string& index_name) {
+    assert(entries_.count(index_name));
+    auto entry = std::move(entries_[index_name]);
+    if(lookups_[entry.field_name] == index_name) {
+        lookups_.erase(entry.field_name);
+    }
     return Status::OK();
 }
 

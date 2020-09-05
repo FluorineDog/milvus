@@ -59,17 +59,14 @@ class SegmentBase {
     // watch changes
     // NOTE: Segment will use this ptr as correct
 
-    // BuildIndex With Paramaters, must with Frozen State
-    // This function is atomic
-    // NOTE: index_params contains serveral policies for several index
-    virtual Status
-    UpdateIndex() = 0;
-
     virtual Status
     DropRawData(std::string_view field_name) = 0;
 
     virtual Status
     LoadRawData(std::string_view field_name, const char* blob, int64_t blob_size) = 0;
+
+    virtual Status
+    BuildIndex() = 0;
 
  public:
     virtual ssize_t
@@ -82,7 +79,6 @@ class SegmentBase {
     get_deleted_count() const = 0;
 
  public:
-
  private:
     Timestamp time_begin_;
     Timestamp time_end_;
