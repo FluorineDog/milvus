@@ -18,7 +18,7 @@ CreateSegment(SchemaPtr schema, IndexMetaPtr remote_index_meta) {
 
 Status
 SegmentNaive::Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
-                     const DogDataChunk& row_values) {
+                     const DogDataChunk& row_values, std::pair<Timestamp, Timestamp> timestamp_range) {
     const auto& schema = *schema_;
     auto record_ptr = GetMutableRecord();
     assert(record_ptr);
@@ -49,7 +49,7 @@ SegmentNaive::Insert(int64_t size, const uint64_t* primary_keys, const Timestamp
 }
 
 Status
-SegmentNaive::Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps) {
+SegmentNaive::Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, std::pair<Timestamp, Timestamp> timestamp_range) {
     for (int i = 0; i < size; ++i) {
         auto key = primary_keys[i];
         auto time = timestamps[i];

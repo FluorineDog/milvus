@@ -75,11 +75,11 @@ class SegmentNaive : public SegmentBase {
     // TODO: Is it ok to put them the other side?
     Status
     Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
-           const DogDataChunk& values) override;
+           const DogDataChunk& values, std::pair<Timestamp, Timestamp> timestamp_range) override;
 
     // TODO: add id into delete log, possibly bitmap
     Status
-    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps) override;
+    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, std::pair<Timestamp, Timestamp> timestamp_range) override;
 
     // query contains metadata of
     Status
