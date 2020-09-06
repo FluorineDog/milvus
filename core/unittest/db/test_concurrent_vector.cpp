@@ -69,7 +69,7 @@ TEST(ConcurrentVector, TestSingle) {
     }
 }
 
-TEST(ConcurrentVector, TestMultis) {
+TEST(ConcurrentVector, TestMultithreads) {
     auto dim = 8;
     constexpr int threads = 16;
     std::vector<int64_t> total_counts(threads);
@@ -79,7 +79,7 @@ TEST(ConcurrentVector, TestMultis) {
     //    std::mutex mutex;
 
     auto executor = [&](int thread_id) {
-        std::default_random_engine e(42);
+        std::default_random_engine e(42 + thread_id);
         int64_t data = 0;
         int64_t total_count = 0;
         for (int i = 0; i < 10000; ++i) {
