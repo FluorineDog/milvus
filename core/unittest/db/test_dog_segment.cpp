@@ -171,7 +171,7 @@ TEST_F(DogSegmentTest, MockTest) {
 
     DogDataChunk data_chunk{raw_data.data(), (int)line_sizeof, N};
 
-    segment->Insert(N, uids.data(), timestamps.data(), data_chunk);
+    segment->Insert(N, uids.data(), timestamps.data(), data_chunk, std::make_pair(0, 0));
     QueryResult query_result;
     segment->Query(nullptr, 0, query_result);
     segment->Close();
