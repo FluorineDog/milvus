@@ -82,8 +82,8 @@ TEST(ConcurrentVector, TestMulti) {
     auto executor = [&](int thread_id) {
         std::default_random_engine e(42);
         int64_t data = 0;
-        auto total_count = 0;
-        for(int i = 0; i < 10000; ++i) {
+        int64_t total_count = 0;
+        for(int i = 0; i < 1000; ++i) {
             int insert_size = e() % 150;
             vector<int64_t> vec(insert_size * dim);
             for(auto& x: vec) {
