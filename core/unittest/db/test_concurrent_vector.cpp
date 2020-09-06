@@ -69,9 +69,9 @@ TEST(ConcurrentVector, TestSingle) {
     }
 }
 
-TEST(ConcurrentVector, MultiTest) {
+TEST(ConcurrentVector, TestMultis) {
     auto dim = 8;
-    constexpr int threads = 2;
+    constexpr int threads = 16;
     std::vector<int64_t> total_counts(threads);
 
     ConcurrentVector<int64_t, 32> c_vec(dim);
