@@ -76,7 +76,7 @@ TEST(ConcurrentVector, MultiTest) {
 
     ConcurrentVector<int64_t, 32> c_vec(dim);
     std::atomic<int64_t> ack_counter = 0;
-    // std::mutex mutex;
+    //    std::mutex mutex;
 
     auto executor = [&](int thread_id) {
         std::default_random_engine e(42);

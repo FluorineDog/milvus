@@ -1,35 +1,76 @@
 #pragma once
 #include <tbb/concurrent_vector.h>
 
+#include <atomic>
 #include <cassert>
+#include <deque>
+#include <mutex>
+#include <shared_mutex>
 #include <vector>
 namespace milvus::dog_segment {
 
 // we don't use std::array because capacity of concurrent_vector wastes too much memory
+// template <typename Type>
+// class FixedVector : public std::vector<Type> {
+// public:
+//    // This is a stupid workaround for tbb API to avoid memory copy
+//    explicit FixedVector(int64_t size) : placeholder_size_(size) {
+//    }
+//    FixedVector(const FixedVector<Type>& placeholder_vec)
+//        : std::vector<Type>(placeholder_vec.placeholder_size_), is_placeholder_(false) {
+//        // assert(placeholder_vec.is_placeholder_);
+//    }
+//    FixedVector(FixedVector<Type>&&) = delete;
+//
+//    FixedVector&
+//    operator=(FixedVector<Type>&&) = delete;
+//
+//    FixedVector&
+//    operator=(const FixedVector<Type>&) = delete;
+//
+//    bool is_placeholder() {
+//        return is_placeholder_;
+//    }
+// private:
+//    bool is_placeholder_ = true;
+//    int placeholder_size_ = 0;
+//};
+
 template <typename Type>
-class FixedVector : public std::vector<Type> {
+using FixedVector = std::vector<Type>;
+
+template <typename Type>
+class ThreadSafeVector {
  public:
-    // This is a stupid workaround for tbb API to avoid memory copy
-    explicit FixedVector(int64_t size) : placeholder_size_(size) {
+    template <typename... Args>
+    void
+    emplace_to_at_least(int64_t size, Args... args) {
+        if (size <= size_) {
+            return;
+        }
+        // maybe slow
+        std::lock_guard lck(mutex_);
+        while (vec_.size() < size) {
+            vec_.emplace_back(std::forward<Args...>(args...));
+            ++size_;
+        }
     }
-    FixedVector(const FixedVector<Type>& placeholder_vec)
-        : std::vector<Type>(placeholder_vec.placeholder_size_), is_placeholder_(false) {
-        // assert(placeholder_vec.is_placeholder_);
+    Type&
+    operator[](int64_t index) {
+        assert(index < size_);
+        std::shared_lock lck(mutex_);
+        return vec_[index];
     }
-    FixedVector(FixedVector<Type>&&) = delete;
 
-    FixedVector&
-    operator=(FixedVector<Type>&&) = delete;
-
-    FixedVector&
-    operator=(const FixedVector<Type>&) = delete;
-
-    bool is_placeholder() {
-        return is_placeholder_;
+    int64_t
+    size() {
+        return size_;
     }
+
  private:
-    bool is_placeholder_ = true;
-    int placeholder_size_ = 0;
+    std::atomic<int64_t> size_ = 0;
+    std::deque<Type> vec_;
+    std::shared_mutex mutex_;
 };
 
 template <typename Type, ssize_t ElementsPerChunk = 32 * 1024>
@@ -43,12 +84,15 @@ class ConcurrentVector {
     }
     void
     grow_to_at_least(int64_t element_count) {
-        auto chunk_count = 1 + (element_count - 1) / ElementsPerChunk;
-        chunks_.grow_to_at_least(chunk_count, FixedVector<Type>(SizePerChunk));
+        auto chunk_count = (element_count + ElementsPerChunk - 1) / ElementsPerChunk;
+        chunks_.emplace_to_at_least(chunk_count, SizePerChunk);
     }
 
     void
     set_data(ssize_t element_offset, const Type* source, ssize_t element_count) {
+        if (element_count == 0) {
+            return;
+        }
         auto chunk_id = element_offset / ElementsPerChunk;
         auto chunk_offset = element_offset % ElementsPerChunk;
         ssize_t source_offset = 0;
@@ -75,7 +119,7 @@ class ConcurrentVector {
         }
 
         // the final
-        if(element_count > 0) {
+        if (element_count > 0) {
             fill_chunk(chunk_id, 0, element_count, source, source_offset);
         }
     }
@@ -86,29 +130,37 @@ class ConcurrentVector {
     }
 
     // just for fun, don't use it directly
-    const Type* get_element(ssize_t element_index) {
+    const Type*
+    get_element(ssize_t element_index) {
         auto chunk_id = element_index / ElementsPerChunk;
         auto chunk_offset = element_index % ElementsPerChunk;
         return get_chunk(chunk_id).data() + chunk_offset * Dim;
     }
 
-    ssize_t chunk_size() {
+    ssize_t
+    chunk_size() {
         return chunks_.size();
     }
 
  private:
     void
-    fill_chunk(ssize_t chunk_id, ssize_t chunk_offset, ssize_t element_count, const Type* source, ssize_t source_offset) {
+    fill_chunk(ssize_t chunk_id, ssize_t chunk_offset, ssize_t element_count, const Type* source,
+               ssize_t source_offset) {
+        if (element_count <= 0) {
+            return;
+        }
+        auto chunk_max_size = chunks_.size();
+        assert(chunk_id < chunk_max_size);
         Chunk& chunk = chunks_[chunk_id];
         auto ptr = chunk.data();
-        assert(!chunk.is_placeholder());
         std::copy_n(source + source_offset * Dim, element_count * Dim, ptr + chunk_offset * Dim);
     }
 
     const ssize_t Dim;
     const ssize_t SizePerChunk;
+
  private:
-    tbb::concurrent_vector<Chunk> chunks_;
+    ThreadSafeVector<Chunk> chunks_;
 };
 
 }  // namespace milvus::dog_segment
