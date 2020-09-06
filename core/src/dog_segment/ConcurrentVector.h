@@ -14,7 +14,7 @@ class FixedVector : public std::vector<Type> {
     }
     FixedVector(const FixedVector<Type>& placeholder_vec)
         : std::vector<Type>(placeholder_vec.placeholder_size_), is_placeholder_(false) {
-        assert(placeholder_vec.is_placeholder_);
+        // assert(placeholder_vec.is_placeholder_);
     }
     FixedVector(FixedVector<Type>&&) = delete;
 
@@ -100,8 +100,9 @@ class ConcurrentVector {
     void
     fill_chunk(ssize_t chunk_id, ssize_t chunk_offset, ssize_t element_count, const Type* source, ssize_t source_offset) {
         Chunk& chunk = chunks_[chunk_id];
+        auto ptr = chunk.data();
         assert(!chunk.is_placeholder());
-        std::copy_n(source + source_offset * Dim, element_count * Dim, chunk.data() + chunk_offset * Dim);
+        std::copy_n(source + source_offset * Dim, element_count * Dim, ptr + chunk_offset * Dim);
     }
 
     const ssize_t Dim;

@@ -43,6 +43,7 @@ target_link_libraries(test_db ${UNITTEST_LIBS}
         tracing
         query
         log
+        pthread
         )
 
 install(TARGETS test_db DESTINATION unittest)
