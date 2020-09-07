@@ -24,11 +24,10 @@ SegmentNaive::Record::Record(const Schema &schema): uids_(1), timestamps_(1) {
     }
 }
 
-
 Status
 SegmentNaive::Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
                      const DogDataChunk& row_values, std::pair<Timestamp, Timestamp> timestamp_range) {
-        
+//    std::vector<>
     throw std::runtime_error("unimplemented");
 //    const auto& schema = *schema_;
 //    auto record_ptr = GetMutableRecord();

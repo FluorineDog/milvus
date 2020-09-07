@@ -97,7 +97,11 @@ class ConcurrentVector : public VectorBase {
  public:
     // constants
     using Chunk = FixedVector<Type>;
+    ConcurrentVector(ConcurrentVector&&) = delete;
+    ConcurrentVector(const ConcurrentVector&) = delete;
 
+    ConcurrentVector& operator=(ConcurrentVector&&) = delete;
+    ConcurrentVector& operator=(const ConcurrentVector&) = delete;
  public:
     explicit ConcurrentVector(ssize_t dim = 1) : Dim(is_scalar ? 1 : dim), SizePerChunk(Dim * ElementsPerChunk) {
         assert(is_scalar ? dim == 1 : dim != 1);
@@ -164,6 +168,7 @@ class ConcurrentVector : public VectorBase {
 
     const Type&
     operator[](ssize_t element_index) const {
+        assert(Dim == 1);
         auto chunk_id = element_index / ElementsPerChunk;
         auto chunk_offset = element_index % ElementsPerChunk;
         return get_chunk(chunk_id)[chunk_offset];
@@ -190,7 +195,6 @@ class ConcurrentVector : public VectorBase {
 
     const ssize_t Dim;
     const ssize_t SizePerChunk;
-
  private:
     ThreadSafeVector<Chunk> chunks_;
 };
