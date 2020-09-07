@@ -77,12 +77,6 @@ class SegmentBase {
 
     virtual ssize_t
     get_deleted_count() const = 0;
-
- public:
- private:
-    Timestamp time_begin_;
-    Timestamp time_end_;
-    uint64_t segment_id_;
 };
 
 using SegmentBasePtr = std::shared_ptr<SegmentBase>;

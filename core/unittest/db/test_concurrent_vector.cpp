@@ -31,6 +31,7 @@
 #include "segment/SegmentWriter.h"
 #include "src/dog_segment/SegmentBase.h"
 #include "utils/Json.h"
+#include "dog_segment/AckResponder.h"
 
 using std::cin;
 using std::cout;
@@ -116,4 +117,22 @@ TEST(ConcurrentVector, TestMultithreads) {
             ASSERT_EQ(raw_data, std_data) << data;
         }
     }
+}
+TEST(ConcurrentVector, TestAckSingle) {
+    std::vector<std::tuple<int64_t, int64_t, int64_t>> raw_data;
+    std::default_random_engine e(42);
+    AckResponder ack;
+    int N = 10000;
+    for(int i = 0; i < 10000; ++i) {
+        auto weight = i + e() % 100;
+        raw_data.emplace_back(weight, i, (i + 1));
+    }
+    std::sort(raw_data.begin(), raw_data.end());
+    for(auto [_, b, e]: raw_data) {
+        EXPECT_LE(ack.GetAck(), b);
+        ack.AddSegment(b, e);
+        auto seg = ack.GetAck();
+        EXPECT_GE(seg + 100, b);
+    }
+    EXPECT_EQ(ack.GetAck(), N);
 }

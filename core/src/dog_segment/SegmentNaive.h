@@ -11,35 +11,6 @@
 #include "utils/Status.h"
 namespace milvus::dog_segment {
 
-class AckResponder {
- public:
-    void
-    AddSegment(int64_t seg_begin, int64_t seg_end) {
-        std::lock_guard lck(mutex_);
-        alter(seg_end);
-        alter(seg_begin);
-    }
-
-    int64_t
-    GetAck() {
-        std::shared_lock lck(mutex_);
-        return *acks_.begin();
-    }
-
- private:
-    void
-    alter(int64_t endpoint) {
-        if (acks_.count(endpoint)) {
-            acks_.erase(endpoint);
-        } else {
-            acks_.insert(endpoint);
-        }
-    }
-
- private:
-    std::shared_mutex mutex_;
-    std::set<int64_t> acks_ = {0};
-};
 
 
 
@@ -170,7 +141,7 @@ class SegmentNaive : public SegmentBase {
 
     // we should fuck them as a struct
     std::atomic<int64_t> ack_count_ = 0;
-    AckResponder ack_responder_;
+//    AckResponder ack_responder_;
 
     tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
 
