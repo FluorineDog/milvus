@@ -17,7 +17,6 @@ struct DogDataChunk {
     int64_t count;
 };
 
-
 inline int
 field_sizeof(DataType data_type, int dim = 1) {
     switch (data_type) {
@@ -108,7 +107,7 @@ class Schema {
         auto offset = fields_.size();
         fields_.emplace_back(field_meta);
         offsets_.emplace(field_meta.get_name(), offset);
-        total_sizeof_ = field_meta.get_sizeof();
+        total_sizeof_ += field_meta.get_sizeof();
     }
 
     auto
@@ -130,13 +129,19 @@ class Schema {
         return fields_.end();
     }
 
-    int size() const {
+    int
+    size() const {
         return fields_.size();
     }
 
     const FieldMeta&
     operator[](int field_index) const {
         return fields_[field_index];
+    }
+
+    auto
+    get_total_sizeof() const {
+        return total_sizeof_;
     }
 
     const FieldMeta&
@@ -154,7 +159,7 @@ class Schema {
  private:
     // a mapping for random access
     std::unordered_map<std::string, int> offsets_;
-    int total_sizeof_;
+    int total_sizeof_ = 0;
 };
 
 using SchemaPtr = std::shared_ptr<Schema>;
