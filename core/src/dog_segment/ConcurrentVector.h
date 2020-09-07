@@ -48,7 +48,7 @@ class ThreadSafeVector {
         if (size <= size_) {
             return;
         }
-        // maybe slow
+        // TODO: use multithread to speedup
         std::lock_guard lck(mutex_);
         while (vec_.size() < size) {
             vec_.emplace_back(std::forward<Args...>(args...));
