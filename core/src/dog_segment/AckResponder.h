@@ -2,6 +2,7 @@
 #include <shared_mutex>
 #include <mutex>
 #include <set>
+#include <atomic>
 namespace milvus::dog_segment {
 class AckResponder {
  public:
@@ -16,7 +17,7 @@ class AckResponder {
     }
 
     int64_t
-    GetAck() {
+    GetAck() const{
         return minimal;
     }
 

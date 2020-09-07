@@ -5,15 +5,15 @@
 
 #include <shared_mutex>
 
+#include "AckResponder.h"
+#include "ConcurrentVector.h"
 #include "dog_segment/SegmentBase.h"
 #include "knowhere/index/structured_index/StructuredIndex.h"
 #include "query/GeneralQuery.h"
 #include "utils/Status.h"
+using idx_t = int64_t;
+
 namespace milvus::dog_segment {
-
-
-
-
 struct ColumnBasedDataChunk {
     std::vector<std::vector<float>> entity_vecs;
     static ColumnBasedDataChunk
@@ -45,12 +45,13 @@ class SegmentNaive : public SegmentBase {
     // TODO: originally, id should be put into data_chunk
     // TODO: Is it ok to put them the other side?
     Status
-    Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
-           const DogDataChunk& values, std::pair<Timestamp, Timestamp> timestamp_range) override;
+    Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, const DogDataChunk& values,
+           std::pair<Timestamp, Timestamp> timestamp_range) override;
 
     // TODO: add id into delete log, possibly bitmap
     Status
-    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, std::pair<Timestamp, Timestamp> timestamp_range) override;
+    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
+           std::pair<Timestamp, Timestamp> timestamp_range) override;
 
     // query contains metadata of
     Status
@@ -68,7 +69,8 @@ class SegmentNaive : public SegmentBase {
     // NOTE: index_params contains serveral policies for several index
     // TODO: currently, index has to be set at startup, and can't be modified
     // AddIndex and DropIndex will be added later
-    Status BuildIndex() override;
+    Status
+    BuildIndex() override;
 
     Status
     DropRawData(std::string_view field_name) override {
@@ -84,45 +86,33 @@ class SegmentNaive : public SegmentBase {
 
  private:
     struct MutableRecord {
-        tbb::concurrent_vector<uint64_t> uids_;
+        ConcurrentVector<uint64_t> uids_;
         tbb::concurrent_vector<Timestamp> timestamps_;
         std::vector<tbb::concurrent_vector<float>> entity_vecs_;
         MutableRecord(int entity_size) : entity_vecs_(entity_size) {
         }
     };
 
-    struct ImmutableRecord {
-        std::vector<uint64_t> uids_;
-        std::vector<Timestamp> timestamps_;
-        std::vector<std::vector<float>> entity_vecs_;
-        ImmutableRecord(int entity_size) : entity_vecs_(entity_size) {
-        }
+    struct Record {
+        ConcurrentVector<Timestamp, true> timestamps_;
+        ConcurrentVector<idx_t, true> uids_;
+        std::vector<std::shared_ptr<VectorBase>> entity_vec_;
+        Record(const Schema& schema);
     };
 
     template <typename RecordType>
     Status
     QueryImpl(const RecordType& record, const query::QueryPtr& query, Timestamp timestamp, QueryResult& results);
 
-    std::shared_ptr<MutableRecord>
-    GetMutableRecord() {
-        if (ready_immutable_) {
-            return nullptr;
-        }
-        std::shared_lock lck(mutex_);
-        return record_mutable_;
-    }
-
  public:
     ssize_t
     get_row_count() const override {
-        return ack_count_.load(std::memory_order_relaxed);
+        return ack_responder_.GetAck();
     }
-
     SegmentState
     get_state() const override {
         return state_.load(std::memory_order_relaxed);
     }
-
     ssize_t
     get_deleted_count() const override {
         return 0;
@@ -131,31 +121,24 @@ class SegmentNaive : public SegmentBase {
  public:
     friend std::shared_ptr<SegmentBase>
     CreateSegment(SchemaPtr schema, IndexMetaPtr index_meta);
+    explicit SegmentNaive(SchemaPtr schema, IndexMetaPtr index_meta)
+        : schema_(schema), index_meta_(index_meta), record_(*schema) {
+    }
 
  private:
     SchemaPtr schema_;
     IndexMetaPtr index_meta_;
-
-    std::shared_mutex mutex_;
     std::atomic<SegmentState> state_ = SegmentState::Open;
+    AckResponder ack_responder_;
+    Record record_;
 
-    // we should fuck them as a struct
-    std::atomic<int64_t> ack_count_ = 0;
-//    AckResponder ack_responder_;
-
-    tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
-
-    std::shared_ptr<MutableRecord> record_mutable_;
-
-    // to determined that if immutable data if available
-    std::atomic<bool> ready_immutable_ = false;
-    std::shared_ptr<ImmutableRecord> record_immutable_ = nullptr;
-
-    std::unordered_map<int, knowhere::VecIndexPtr> vec_indexings_;
-
-    // TODO: scalar indexing
-    // std::unordered_map<int, knowhere::IndexPtr> scalar_indexings_;
-
-    tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
+    //  tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;
+    //  std::shared_ptr<MutableRecord> record_mutable_;
+    //  // to determined that if immutable data if available
+    //  std::shared_ptr<ImmutableRecord> record_immutable_ = nullptr;
+    //  std::unordered_map<int, knowhere::VecIndexPtr> vec_indexings_;
+    //  // TODO: scalar indexing
+    //  // std::unordered_map<int, knowhere::IndexPtr> scalar_indexings_;
+    //  tbb::concurrent_unordered_multimap<int, Timestamp> delete_logs_;
 };
-}
+}  // namespace milvus::dog_segment

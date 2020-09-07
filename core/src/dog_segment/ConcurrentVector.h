@@ -55,6 +55,13 @@ class ThreadSafeVector {
             ++size_;
         }
     }
+    const Type&
+    operator[](int64_t index) const {
+        assert(index < size_);
+        std::shared_lock lck(mutex_);
+        return vec_[index];
+    }
+
     Type&
     operator[](int64_t index) {
         assert(index < size_);
@@ -63,29 +70,47 @@ class ThreadSafeVector {
     }
 
     int64_t
-    size() {
+    size() const {
         return size_;
     }
 
  private:
     std::atomic<int64_t> size_ = 0;
     std::deque<Type> vec_;
-    std::shared_mutex mutex_;
+    mutable std::shared_mutex mutex_;
 };
 
-template <typename Type, ssize_t ElementsPerChunk = 32 * 1024>
-class ConcurrentVector {
+class VectorBase {
+ public:
+    VectorBase() = default;
+    virtual ~VectorBase() = default;
+
+    virtual void
+    grow_to_at_least(int64_t element_count) = 0;
+
+    virtual void
+    set_data_raw(ssize_t element_offset, void* source, ssize_t element_count) = 0;
+};
+
+template <typename Type, bool is_scalar = false, ssize_t ElementsPerChunk = 32 * 1024>
+class ConcurrentVector : public VectorBase {
  public:
     // constants
     using Chunk = FixedVector<Type>;
 
  public:
-    ConcurrentVector(ssize_t dim) : Dim(dim), SizePerChunk(dim * ElementsPerChunk) {
+    explicit ConcurrentVector(ssize_t dim = 1) : Dim(is_scalar ? 1 : dim), SizePerChunk(Dim * ElementsPerChunk) {
+        assert(is_scalar ? dim == 1 : dim != 1);
     }
     void
-    grow_to_at_least(int64_t element_count) {
+    grow_to_at_least(int64_t element_count) override {
         auto chunk_count = (element_count + ElementsPerChunk - 1) / ElementsPerChunk;
         chunks_.emplace_to_at_least(chunk_count, SizePerChunk);
+    }
+
+    void
+    set_data_raw(ssize_t element_offset, void* source, ssize_t element_count) override {
+        set_data(element_count, static_cast<const Type*>(source), element_count);
     }
 
     void
@@ -125,20 +150,27 @@ class ConcurrentVector {
     }
 
     const Chunk&
-    get_chunk(ssize_t chunk_index) {
+    get_chunk(ssize_t chunk_index) const {
         return chunks_[chunk_index];
     }
 
     // just for fun, don't use it directly
     const Type*
-    get_element(ssize_t element_index) {
+    get_element(ssize_t element_index) const {
         auto chunk_id = element_index / ElementsPerChunk;
         auto chunk_offset = element_index % ElementsPerChunk;
         return get_chunk(chunk_id).data() + chunk_offset * Dim;
     }
 
+    const Type&
+    operator[](ssize_t element_index) const {
+        auto chunk_id = element_index / ElementsPerChunk;
+        auto chunk_offset = element_index % ElementsPerChunk;
+        return get_chunk(chunk_id)[chunk_offset];
+    }
+
     ssize_t
-    chunk_size() {
+    chunk_size() const {
         return chunks_.size();
     }
 
