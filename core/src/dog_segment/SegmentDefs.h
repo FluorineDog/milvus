@@ -107,7 +107,9 @@ class Schema {
         auto offset = fields_.size();
         fields_.emplace_back(field_meta);
         offsets_.emplace(field_meta.get_name(), offset);
-        total_sizeof_ += field_meta.get_sizeof();
+        auto field_sizeof = field_meta.get_sizeof();
+        sizeof_info.push_back(field_sizeof);
+        total_sizeof_ += field_sizeof;
     }
 
     auto
@@ -144,6 +146,11 @@ class Schema {
         return total_sizeof_;
     }
 
+    const std::vector<int>& get_sizeof_infos() {
+        return sizeof_infos_;
+    }
+
+
     const FieldMeta&
     operator[](const std::string& field_name) const {
         auto offset_iter = offsets_.find(field_name);
@@ -159,6 +166,7 @@ class Schema {
  private:
     // a mapping for random access
     std::unordered_map<std::string, int> offsets_;
+    std::vector<int> sizeof_infos_;
     int total_sizeof_ = 0;
 };
 
