@@ -28,12 +28,14 @@ SegmentNaive::Record::Record(const Schema& schema) : uids_(1), timestamps_(1) {
     }
 }
 
-int64_t SegmentNaive::PreInsert(int64_t size) {
+int64_t
+SegmentNaive::PreInsert(int64_t size) {
     auto reserved_begin = record_.reserved.fetch_add(size);
     return reserved_begin;
 }
 
-int64_t SegmentNaive::PreDelete(int64_t size) {
+int64_t
+SegmentNaive::PreDelete(int64_t size) {
     throw std::runtime_error("unimplemented");
 }
 
@@ -43,8 +45,7 @@ SegmentNaive::Insert(int64_t reserved_begin, int64_t size, const uint64_t* uids_
     assert(entities_raw.count == size);
     assert(entities_raw.sizeof_per_row == schema_->get_total_sizeof());
     auto raw_data = reinterpret_cast<const char*>(entities_raw.raw_data);
-//    std::vector<char> entities(raw_data, raw_data + size * len_per_row);
-
+    //    std::vector<char> entities(raw_data, raw_data + size * len_per_row);
 
     auto len_per_row = entities_raw.sizeof_per_row;
     std::vector<std::tuple<Timestamp, idx_t, int64_t>> ordering;
@@ -85,10 +86,12 @@ SegmentNaive::Insert(int64_t reserved_begin, int64_t size, const uint64_t* uids_
     for (int fid = 0; fid < schema_->size(); ++fid) {
         record_.entity_vec_[fid]->set_data_raw(reserved_begin, entities[fid].data(), size);
     }
+
+    record_.ack_responder_.AddSegment(reserved_begin, size);
     return Status::OK();
 
-//    std::thread go(executor, std::move(uids), std::move(timestamps), std::move(entities));
-//    go.detach();
+    //    std::thread go(executor, std::move(uids), std::move(timestamps), std::move(entities));
+    //    go.detach();
     //    const auto& schema = *schema_;
     //    auto record_ptr = GetMutableRecord();
     //    assert(record_ptr);
@@ -171,10 +174,37 @@ Status
 SegmentNaive::Query(const query::QueryPtr& query, Timestamp timestamp, QueryResult& result) {
     // TODO: enable delete
     // TODO: enable index
+    auto& field = schema_->operator[](0);
+    assert(field.get_name() == "fakevec");
+    assert(field.get_data_type() == DataType::VECTOR_FLOAT);
+    auto dim = field.get_dim();
     assert(query == nullptr);
+    int64_t barrier = [&]
+    {
+        auto& vec = record_.timestamps_;
+        int64_t beg = 0;
+        int64_t end = record_.ack_responder_.GetAck();
+        while (beg < end) {
+            auto mid = (beg + end) / 2;
+            if (vec[mid] < timestamp) {
+                end = mid + 1;
+            } else {
+                beg = mid;
+            }
 
+        }
+        return beg;
+    }();
+    // search until barriers
+    // TODO: optimize
+    auto vec_ptr = std::static_pointer_cast<ConcurrentVector<float>>(record_.entity_vec_[0]);
+    for(int64_t i = 0; i < barrier; ++i) {
+        auto element =
+    }
+
+    return Status::OK();
     // find end of binary
-//    throw std::runtime_error("unimplemented");
+    //    throw std::runtime_error("unimplemented");
     //    auto record_ptr = GetMutableRecord();
     //    if (record_ptr) {
     //        return QueryImpl(*record_ptr, query, timestamp, result);
