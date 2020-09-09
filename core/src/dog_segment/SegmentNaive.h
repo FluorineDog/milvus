@@ -123,7 +123,7 @@ class SegmentNaive : public SegmentBase {
     }
 
  public:
-    friend std::shared_ptr<SegmentBase>
+    friend std::unique_ptr<SegmentBase>
     CreateSegment(SchemaPtr schema, IndexMetaPtr index_meta);
     explicit SegmentNaive(SchemaPtr schema, IndexMetaPtr index_meta)
         : schema_(schema), index_meta_(index_meta), record_(*schema) {

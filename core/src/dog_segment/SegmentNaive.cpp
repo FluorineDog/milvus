@@ -10,9 +10,9 @@ TestABI() {
     return 42;
 }
 
-std::shared_ptr<SegmentBase>
+std::unique_ptr<SegmentBase>
 CreateSegment(SchemaPtr schema, IndexMetaPtr remote_index_meta) {
-    auto segment = std::make_shared<SegmentNaive>(schema, remote_index_meta);
+    auto segment = std::make_unique<SegmentNaive>(schema, remote_index_meta);
     return segment;
 }
 
@@ -199,7 +199,8 @@ SegmentNaive::Query(const query::QueryPtr& query, Timestamp timestamp, QueryResu
     // TODO: optimize
     auto vec_ptr = std::static_pointer_cast<ConcurrentVector<float>>(record_.entity_vec_[0]);
     for(int64_t i = 0; i < barrier; ++i) {
-        auto element =
+//        auto element =
+        throw std::runtime_error("unimplemented");
     }
 
     return Status::OK();

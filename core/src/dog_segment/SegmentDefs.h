@@ -6,14 +6,14 @@
 #include "knowhere/index/Index.h"
 #include "utils/Status.h"
 
-using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
 namespace milvus::dog_segment {
+using Timestamp = uint64_t;  // TODO: use TiKV-like timestamp
 using engine::DataType;
 using engine::FieldElementType;
 
 struct DogDataChunk {
     void* raw_data;      // schema
-    int64_t sizeof_per_row;  // alignment
+    int sizeof_per_row;  // alignment
     int64_t count;
 };
 

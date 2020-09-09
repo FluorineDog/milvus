@@ -83,9 +83,9 @@ class SegmentBase {
     get_deleted_count() const = 0;
 };
 
-using SegmentBasePtr = std::shared_ptr<SegmentBase>;
+using SegmentBasePtr = std::unique_ptr<SegmentBase>;
 
-std::shared_ptr<SegmentBase>
+SegmentBasePtr
 CreateSegment(SchemaPtr schema, IndexMetaPtr index_meta);
 
 }  // namespace dog_segment
