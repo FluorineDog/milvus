@@ -170,10 +170,10 @@ TEST_F(DogSegmentTest, MockTest) {
     auto segment = CreateSegment(schema, index_meta);
 
     DogDataChunk data_chunk{raw_data.data(), (int)line_sizeof, N};
-
-    segment->Insert(N, uids.data(), timestamps.data(), data_chunk, std::make_pair(0, 0));
+    auto offset = segment->PreInsert(N);
+    segment->Insert(offset, N, uids.data(), timestamps.data(), data_chunk);
     QueryResult query_result;
-    segment->Query(nullptr, 0, query_result);
+//    segment->Query(nullptr, 0, query_result);
     segment->Close();
 //    segment->BuildIndex();
     int i = 0;

@@ -28,51 +28,67 @@ SegmentNaive::Record::Record(const Schema& schema) : uids_(1), timestamps_(1) {
     }
 }
 
+int64_t SegmentNaive::PreInsert(int64_t size) {
+    auto reserved_begin = record_.reserved.fetch_add(size);
+    return reserved_begin;
+}
+
+int64_t SegmentNaive::PreDelete(int64_t size) {
+    throw std::runtime_error("unimplemented");
+}
+
 Status
-SegmentNaive::Insert(int64_t size, const uint64_t* primary_keys_raw, const Timestamp* timestamps_raw,
-                     const DogDataChunk& entities_raw, std::pair<Timestamp, Timestamp> timestamp_range) {
+SegmentNaive::Insert(int64_t reserved_begin, int64_t size, const uint64_t* uids_raw, const Timestamp* timestamps_raw,
+                     const DogDataChunk& entities_raw) {
     assert(entities_raw.count == size);
     assert(entities_raw.sizeof_per_row == schema_->get_total_sizeof());
-    std::vector<idx_t> uids(primary_keys_raw, primary_keys_raw + size);
-    std::vector<Timestamp> timestamps(timestamps_raw, timestamps_raw + size);
     auto raw_data = reinterpret_cast<const char*>(entities_raw.raw_data);
-    auto len_per_row = entities_raw.sizeof_per_row;
-    std::vector<char> entities(raw_data, raw_data + size * len_per_row);
-    auto executor = [this, size, timestamp_range, len_per_row](std::vector<idx_t> uids, std::vector<Timestamp> timestamps,
-                                                  std::vector<char> entities) {
-        std::vector<std::tuple<Timestamp, idx_t, int64_t>> ordering;
-        ordering.resize(size);
-        // #pragma omp parallel for
-        for (int i = 0; i < size; ++i) {
-            ordering[i] = std::make_tuple(timestamps[i], uids[i], i);
-        }
-        std::sort(ordering.begin(), ordering.end());
-        auto sizeof_infos = schema_->get_sizeof_infos();
-        std::vector<int> offset_infos(schema_->size() + 1, 0);
-        std::partial_sum(sizeof_infos.begin(), sizeof_infos.end(), offset_infos.begin() + 1);
-        std::vector<std::vector<char>> container(schema_->size());
+//    std::vector<char> entities(raw_data, raw_data + size * len_per_row);
 
+
+    auto len_per_row = entities_raw.sizeof_per_row;
+    std::vector<std::tuple<Timestamp, idx_t, int64_t>> ordering;
+    ordering.resize(size);
+    // #pragma omp parallel for
+    for (int i = 0; i < size; ++i) {
+        ordering[i] = std::make_tuple(timestamps_raw[i], uids_raw[i], i);
+    }
+    std::sort(ordering.begin(), ordering.end());
+    auto sizeof_infos = schema_->get_sizeof_infos();
+    std::vector<int> offset_infos(schema_->size() + 1, 0);
+    std::partial_sum(sizeof_infos.begin(), sizeof_infos.end(), offset_infos.begin() + 1);
+    std::vector<std::vector<char>> entities(schema_->size());
+
+    for (int fid = 0; fid < schema_->size(); ++fid) {
+        auto len = sizeof_infos[fid];
+        entities[fid].resize(len * size);
+    }
+
+    std::vector<idx_t> uids(size);
+    std::vector<Timestamp> timestamps(size);
+    // #pragma omp parallel for
+    for (int index = 0; index < size; ++index) {
+        auto [t, uid, order_index] = ordering[index];
+        timestamps[index] = t;
+        uids[index] = uid;
         for (int fid = 0; fid < schema_->size(); ++fid) {
             auto len = sizeof_infos[fid];
-            container[fid].resize(len * size);
+            auto offset = offset_infos[fid];
+            auto src = raw_data + offset + order_index * len_per_row;
+            auto dst = entities[fid].data() + index * len;
+            memcpy(dst, src, len);
         }
+    }
 
-        // #pragma omp parallel for
-        for (int index = 0; index < size; ++index) {
-            for (int fid = 0; fid < schema_->size(); ++fid) {
-                auto len = sizeof_infos[fid];
-                auto offset = offset_infos[fid];
-                auto dst = container[fid].data()  + index * len;
-                auto src = entities.data() + offset + std::get<2>(ordering[index]);
-            }
-        }
-
-        throw std::runtime_error("unimplemented");
-    };
-
-    std::thread go(executor, std::move(uids), std::move(timestamps), std::move(entities));
-    go.detach();
+    record_.timestamps_.set_data(reserved_begin, timestamps.data(), size);
+    record_.uids_.set_data(reserved_begin, uids.data(), size);
+    for (int fid = 0; fid < schema_->size(); ++fid) {
+        record_.entity_vec_[fid]->set_data_raw(reserved_begin, entities[fid].data(), size);
+    }
     return Status::OK();
+
+//    std::thread go(executor, std::move(uids), std::move(timestamps), std::move(entities));
+//    go.detach();
     //    const auto& schema = *schema_;
     //    auto record_ptr = GetMutableRecord();
     //    assert(record_ptr);
@@ -103,8 +119,7 @@ SegmentNaive::Insert(int64_t size, const uint64_t* primary_keys_raw, const Times
 }
 
 Status
-SegmentNaive::Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
-                     std::pair<Timestamp, Timestamp> timestamp_range) {
+SegmentNaive::Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps) {
     throw std::runtime_error("unimplemented");
     //    for (int i = 0; i < size; ++i) {
     //        auto key = primary_keys[i];
@@ -117,8 +132,7 @@ SegmentNaive::Delete(int64_t size, const uint64_t* primary_keys, const Timestamp
 // TODO: remove mock
 
 Status
-SegmentNaive::QueryImpl(const query::QueryPtr& query, Timestamp timestamp,
-                        QueryResult& result) {
+SegmentNaive::QueryImpl(const query::QueryPtr& query, Timestamp timestamp, QueryResult& result) {
     throw std::runtime_error("unimplemented");
     //    auto ack_count = ack_count_.load();
     //    assert(query == nullptr);
@@ -155,7 +169,12 @@ SegmentNaive::QueryImpl(const query::QueryPtr& query, Timestamp timestamp,
 
 Status
 SegmentNaive::Query(const query::QueryPtr& query, Timestamp timestamp, QueryResult& result) {
-    throw std::runtime_error("unimplemented");
+    // TODO: enable delete
+    // TODO: enable index
+    assert(query == nullptr);
+
+    // find end of binary
+//    throw std::runtime_error("unimplemented");
     //    auto record_ptr = GetMutableRecord();
     //    if (record_ptr) {
     //        return QueryImpl(*record_ptr, query, timestamp, result);
@@ -167,7 +186,8 @@ SegmentNaive::Query(const query::QueryPtr& query, Timestamp timestamp, QueryResu
 
 Status
 SegmentNaive::Close() {
-    throw std::runtime_error("unimplemented");
+    state_ = SegmentState::Closed;
+    return Status::OK();
     //    auto src_record = GetMutableRecord();
     //    assert(src_record);
     //

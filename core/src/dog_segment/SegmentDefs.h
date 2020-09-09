@@ -13,7 +13,7 @@ using engine::FieldElementType;
 
 struct DogDataChunk {
     void* raw_data;      // schema
-    int sizeof_per_row;  // alignment
+    int64_t sizeof_per_row;  // alignment
     int64_t count;
 };
 
@@ -108,7 +108,7 @@ class Schema {
         fields_.emplace_back(field_meta);
         offsets_.emplace(field_meta.get_name(), offset);
         auto field_sizeof = field_meta.get_sizeof();
-        sizeof_info.push_back(field_sizeof);
+        sizeof_infos_.push_back(field_sizeof);
         total_sizeof_ += field_sizeof;
     }
 

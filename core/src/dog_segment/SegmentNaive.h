@@ -40,18 +40,21 @@ struct ColumnBasedDataChunk {
 class SegmentNaive : public SegmentBase {
  public:
     virtual ~SegmentNaive() = default;
+
     // SegmentBase(std::shared_ptr<FieldsInfo> collection);
+
+    int64_t PreInsert(int64_t size) override;
 
     // TODO: originally, id should be put into data_chunk
     // TODO: Is it ok to put them the other side?
     Status
-    Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, const DogDataChunk& values,
-           std::pair<Timestamp, Timestamp> timestamp_range) override;
+    Insert(int64_t reserverd_offset, int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, const DogDataChunk& values) override;
+
+    int64_t PreDelete(int64_t size) override;
 
     // TODO: add id into delete log, possibly bitmap
     Status
-    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps,
-           std::pair<Timestamp, Timestamp> timestamp_range) override;
+    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps) override;
 
     // query contains metadata of
     Status
@@ -94,20 +97,21 @@ class SegmentNaive : public SegmentBase {
     };
 
     struct Record {
+        std::atomic<int64_t> reserved = 0;
+        AckResponder ack_responder_;
         ConcurrentVector<Timestamp, true> timestamps_;
         ConcurrentVector<idx_t, true> uids_;
         std::vector<std::shared_ptr<VectorBase>> entity_vec_;
         Record(const Schema& schema);
     };
 
-    template <typename RecordType>
     Status
-    QueryImpl(const RecordType& record, const query::QueryPtr& query, Timestamp timestamp, QueryResult& results);
+    QueryImpl(const query::QueryPtr& query, Timestamp timestamp, QueryResult& results);
 
  public:
     ssize_t
     get_row_count() const override {
-        return ack_responder_.GetAck();
+        return record_.ack_responder_.GetAck();
     }
     SegmentState
     get_state() const override {
@@ -129,7 +133,6 @@ class SegmentNaive : public SegmentBase {
     SchemaPtr schema_;
     IndexMetaPtr index_meta_;
     std::atomic<SegmentState> state_ = SegmentState::Open;
-    AckResponder ack_responder_;
     Record record_;
 
     //  tbb::concurrent_unordered_map<uint64_t, int> internal_indexes_;

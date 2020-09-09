@@ -32,12 +32,16 @@ class SegmentBase {
     virtual ~SegmentBase() = default;
     // SegmentBase(std::shared_ptr<FieldsInfo> collection);
 
-    virtual Status
-    Insert(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, const DogDataChunk& values, std::pair<Timestamp, Timestamp> timestamp_range) = 0;
+    virtual int64_t PreInsert(int64_t size) = 0;
 
-    // TODO: add id into delete log, possibly bitmap
     virtual Status
-    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, std::pair<Timestamp, Timestamp> timestamp_range) = 0;
+    Insert(int64_t reserved_offset, int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps, const DogDataChunk& values) = 0;
+
+    virtual int64_t PreDelete(int64_t size) = 0;
+    // TODO: add id into delete log, possibly bitmap
+
+    virtual Status
+    Delete(int64_t size, const uint64_t* primary_keys, const Timestamp* timestamps) = 0;
 
     // query contains metadata of
     virtual Status
