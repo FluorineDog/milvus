@@ -35,6 +35,7 @@
 #include "scheduler/job/SearchJob.h"
 #include "segment/SegmentReader.h"
 #include "segment/SegmentWriter.h"
+#include "server/ValidationUtil.h"
 #include "utils/Exception.h"
 #include "utils/StringHelpFunctions.h"
 #include "utils/TimeRecorder.h"
@@ -88,15 +89,6 @@ DBImpl::Start() {
     if (initialized_.load(std::memory_order_acquire)) {
         return Status::OK();
     }
-
-    // snapshot
-    auto store = snapshot::Store::Build(options_.meta_.backend_uri_, options_.meta_.path_,
-                                        codec::Codec::instance().GetSuffixSet());
-    snapshot::OperationExecutor::Init(store);
-    snapshot::OperationExecutor::GetInstance().Start();
-    snapshot::EventExecutor::Init(store);
-    snapshot::EventExecutor::GetInstance().Start();
-    snapshot::Snapshots::GetInstance().Init(store);
 
     knowhere::enable_faiss_logging();
 
@@ -153,9 +145,6 @@ DBImpl::Stop() {
         swn_metric_.Notify();
         bg_metric_thread_.join();
     }
-
-    snapshot::EventExecutor::GetInstance().Stop();
-    snapshot::OperationExecutor::GetInstance().Stop();
 
     // LOG_ENGINE_TRACE_ << "DB service stop";
     return Status::OK();
@@ -312,6 +301,7 @@ DBImpl::HasPartition(const std::string& collection_name, const std::string& part
     CHECK_INITIALIZED;
 
     snapshot::ScopedSnapshotT ss;
+    STATUS_CHECK(server::ValidatePartitionTags({partition_tag}));
     STATUS_CHECK(snapshot::Snapshots::GetInstance().GetSnapshot(ss, collection_name));
 
     auto partition_tags = std::move(ss->GetPartitionNames());
@@ -481,14 +471,14 @@ DBImpl::Insert(const std::string& collection_name, const std::string& partition_
 
     // check id field existence
     auto& params = ss->GetCollection()->GetParams();
-    bool auto_increment = true;
+    bool auto_genid = true;
     if (params.find(PARAM_UID_AUTOGEN) != params.end()) {
-        auto_increment = params[PARAM_UID_AUTOGEN];
+        auto_genid = params[PARAM_UID_AUTOGEN];
     }
 
     FIXEDX_FIELD_MAP& fields = data_chunk->fixed_fields_;
     auto pair = fields.find(engine::FIELD_UID);
-    if (auto_increment) {
+    if (auto_genid) {
         // id is auto generated, but client provides id, return error
         if (pair != fields.end() && pair->second != nullptr) {
             return Status(DB_ERROR, "Field '_id' is auto increment, no need to provide id");
@@ -507,7 +497,7 @@ DBImpl::Insert(const std::string& collection_name, const std::string& partition_
     consume_chunk->variable_fields_.swap(data_chunk->variable_fields_);
 
     // generate id
-    if (auto_increment) {
+    if (auto_genid) {
         SafeIDGenerator& id_generator = SafeIDGenerator::GetInstance();
         IDNumbers ids;
         STATUS_CHECK(id_generator.GetNextIDNumbers(consume_chunk->count_, ids));
@@ -523,19 +513,30 @@ DBImpl::Insert(const std::string& collection_name, const std::string& partition_
     }
 
     // do insert
+    int64_t segment_row_count = DEFAULT_SEGMENT_ROW_COUNT;
+    if (params.find(PARAM_SEGMENT_ROW_COUNT) != params.end()) {
+        segment_row_count = params[PARAM_SEGMENT_ROW_COUNT];
+    }
+
     int64_t collection_id = ss->GetCollectionId();
     int64_t partition_id = partition->GetID();
 
-    auto status = mem_mgr_->InsertEntities(collection_id, partition_id, consume_chunk, op_id);
-    if (!status.ok()) {
-        return status;
-    }
-    if (mem_mgr_->GetCurrentMem() > options_.insert_buffer_size_) {
-        LOG_ENGINE_DEBUG_ << LogOut("[%s][%ld] ", "insert", 0) << "Insert buffer size exceeds limit. Force flush";
-        InternalFlush();
+    std::vector<DataChunkPtr> chunks;
+    STATUS_CHECK(utils::SplitChunk(consume_chunk, segment_row_count, chunks));
+
+    for (auto& chunk : chunks) {
+        auto status = mem_mgr_->InsertEntities(collection_id, partition_id, chunk, op_id);
+        if (!status.ok()) {
+            return status;
+        }
+        if (mem_mgr_->GetCurrentMem() > options_.insert_buffer_size_) {
+            LOG_ENGINE_DEBUG_ << LogOut("[%s][%ld] ", "insert", 0) << "Insert buffer size exceeds limit. Force flush";
+            InternalFlush();
+        }
     }
 
     // metrics
+    Status status = Status::OK();
     milvus::server::CollectInsertMetrics metrics(data_chunk->count_, status);
 
     return Status::OK();

@@ -123,6 +123,7 @@ endif ()
 # **************************** Link Libraries with milvus engine ****************************
 target_link_libraries( milvus_engine
                PUBLIC  knowhere
+                       server
                        segment
                        dog_segment
                        cache

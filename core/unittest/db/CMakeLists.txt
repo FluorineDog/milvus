@@ -11,16 +11,16 @@
 # or implied. See the License for the specific language governing permissions and limitations under the License.
 #-------------------------------------------------------------------------------
 
-set(TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_snapshot.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_segment.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_dog_segment.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_concurrent_vector.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_db.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_meta.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_ss_event.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test_wal.cpp
-        )
+set( TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_snapshot.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_segment.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_dog_segment.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_db.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_meta.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_ss_event.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_transcript.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_wal.cpp
+                )
 
 add_executable(test_db
         ${SCHEDULER_FILES}
